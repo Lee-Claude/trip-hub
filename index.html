@@ -1,0 +1,3282 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src 'none'; connect-src blob:; object-src blob:; frame-src blob:; base-uri 'none'; form-action 'none'; worker-src 'none'">
+<title>行程册</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect fill='%231D3330' width='16' height='16' rx='3'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --paper: #E7EBE7;
+    --ink: #1D3330;
+    --blue: #2A4C6B;
+    --gold: #B8801C;
+    --card: #fff;
+    --line: rgba(29, 51, 48, 0.14);
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: 16px; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { min-height: 48px; }
+  h1, h2, h3, p { overflow-wrap: anywhere; }
+  h1, h2, h3 { line-height: 1.3; margin: 0 0 0.4rem; }
+  h1 { font-size: 1.375rem; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 1.0625rem; }
+  p { margin: 0 0 0.75rem; }
+  a { color: var(--blue); }
+  :focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: var(--paper);
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    align-items: center;
+    padding: 10px 12px;
+    background: var(--ink);
+    color: #F4F7F4;
+  }
+  .brand { flex: 1 1 150px; min-width: 0; }
+  .kicker { margin: 0; font-size: 0.875rem; opacity: 0.85; }
+  header h1 { margin: 0; }
+  #header-trip { margin: 0; font-size: 0.875rem; }
+  .header-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .badge {
+    margin: 0;
+    background: #fff;
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 6px 10px;
+    border: 1px solid transparent;
+  }
+  .badge[data-level="warn"] { background: #F6E6C4; border-color: var(--gold); }
+  .badge[data-level="danger"] { background: #F6D2CC; border-color: #8C3A32; }
+  .badge[data-level="unknown"] { background: #fff; color: var(--blue); }
+  #persist-btn, .btn-on-dark {
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    border-radius: 999px;
+    padding: 8px 12px;
+    min-height: 48px;
+  }
+  #persist-status { margin: 0; font-size: 0.875rem; }
+  .pills {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 8px 12px 12px;
+    scroll-snap-type: x proximity;
+  }
+  .pills button {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    padding: 8px 14px;
+    min-height: 48px;
+  }
+  .pills button[aria-current="page"] {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  .wrap {
+    width: min(640px, 100%);
+    margin: 0 auto;
+    padding: 4px 12px 48px;
+  }
+  .callout, .card, .empty, #boot-error {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 12px;
+  }
+  .callout { border-left: 4px solid var(--gold); margin-bottom: 12px; }
+  .card { box-shadow: 0 1px 2px rgba(29, 51, 48, 0.06); margin: 0; }
+  .card-list, .stack { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  .empty { border: 1px dashed var(--line); }
+  .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .actions button, .quick button, .btn-primary, .btn {
+    border-radius: var(--radius);
+    border: 1px solid var(--blue);
+    background: #fff;
+    color: var(--blue);
+    padding: 10px 12px;
+    min-height: 48px;
+  }
+  .actions button { flex: 1 1 100%; }
+  .btn-primary, button.primary {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  .star { color: var(--gold); }
+  .meta { margin: 0 0 0.35rem; }
+  .countdown { margin: 0 0 0.35rem; font-weight: 650; }
+  .field { display: grid; gap: 4px; margin-bottom: 12px; }
+  .field label, .check { display: block; }
+  input[type="text"], input[type="date"], input[type="time"], input[type="number"], select, textarea {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: #fff;
+  }
+  textarea { min-height: 8rem; resize: vertical; }
+  .form-error, #error-banner {
+    background: #F6E6C4;
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+  #unsaved-backup, .subcard {
+    background: var(--paper);
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 8px;
+  }
+  pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    margin: 0 0 8px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 0.875rem;
+  }
+  dl { display: grid; grid-template-columns: 7rem 1fr; gap: 4px 8px; margin: 0; }
+  dt { margin: 0; }
+  dd { margin: 0; }
+dialog:not([open]) { display: none; }
+  dialog {
+  border: 0;
+    border-radius: var(--radius);
+    padding: 1rem;
+    color: var(--ink);
+    background: #fff;
+    width: min(36rem, calc(100vw - 1.5rem));
+    max-height: calc(100dvh - 1.5rem);
+    overflow: auto;
+  }
+  dialog:modal { overscroll-behavior: contain; }
+  dialog::backdrop {
+    background: rgba(29, 51, 48, 0.45);
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+  .check input { width: 1.25rem; height: 1.25rem; vertical-align: middle; }
+  .completed-fold { margin-top: 12px; }
+  .completed-fold summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; }
+  .card, h2, button, .actions { scroll-margin-top: 8px; }
+  #boot-status { padding: 24px 12px; }
+</style>
+</head>
+<body>
+<p id="boot-status" role="status">正在读取本机记录…</p>
+<div id="boot-error" class="wrap" hidden role="alert"></div>
+<div id="app" hidden>
+  <div class="sticky-top">
+    <header>
+      <div class="brand">
+        <p class="kicker">只在这台浏览器</p>
+        <h1>行程册</h1>
+        <p id="header-trip"></p>
+      </div>
+      <div class="header-tools">
+        <p id="storage-badge" class="badge" data-level="unknown">存储未知</p>
+        <button type="button" id="persist-btn">请求持久存储</button>
+        <p id="persist-status">持久存储：未知</p>
+      </div>
+    </header>
+    <nav id="nav" class="pills" aria-label="模块"></nav>
+  </div>
+  <main class="wrap" id="main">
+    <p class="callout" id="local-warning">这些记录只保存在当前浏览器里，不会同步到其他设备或账号。清除浏览器数据后可能无法找回。IndexedDB 没有加密，订座代号、资料号码、登机牌和附件也一样。直接双击打开这个文件，和用网址打开，是两份不同的存储。剪贴板若被浏览器拒绝，页面会说明，请改用下载。</p>
+<p class="callout" id="origin-note"></p>
+    <div id="quick" class="quick"></div>
+    <div id="toast" role="status"></div>
+    <div id="error-banner" role="alert" hidden></div>
+    <div id="view"></div>
+  </main>
+</div>
+
+<dialog id="guard-dialog" aria-labelledby="guard-title">
+  <h2 id="guard-title">无法新建行程</h2>
+  <p id="guard-body"></p>
+  <form method="dialog">
+    <button type="submit" value="ok" class="btn-primary" autofocus>知道了</button>
+  </form>
+</dialog>
+
+<dialog id="confirm-dialog" aria-labelledby="confirm-title">
+  <h2 id="confirm-title">请确认</h2>
+  <p id="confirm-body"></p>
+  <form method="dialog" class="actions">
+    <button type="submit" value="cancel" id="confirm-cancel" autofocus>取消</button>
+    <button type="submit" value="confirm" id="confirm-ok">确认</button>
+  </form>
+</dialog>
+
+<dialog id="trip-dialog" aria-labelledby="trip-dialog-title">
+  <h2 id="trip-dialog-title">新建行程</h2>
+  <form id="trip-form" onsubmit="return false">
+    <div class="field">
+      <label for="trip-purpose">目的（必填）</label>
+      <input id="trip-purpose" name="purpose" type="text" maxlength="80" required autocomplete="off" enterkeyhint="next">
+    </div>
+    <div class="field">
+      <label for="trip-destination">目的地（必填）</label>
+      <input id="trip-destination" name="destination" type="text" maxlength="80" required autocomplete="off" enterkeyhint="next">
+    </div>
+    <div class="field">
+      <label for="trip-start">开始日期（必填）</label>
+      <input id="trip-start" name="start" type="date" required autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="trip-end">结束日期（必填）</label>
+      <input id="trip-end" name="end" type="date" required autocomplete="off">
+    </div>
+    <p id="trip-error" class="form-error" role="alert" hidden></p>
+    <div class="actions">
+      <button type="button" id="trip-cancel">取消</button>
+      <button type="submit" class="btn-primary" id="trip-save">保存行程</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="editor-dialog" aria-labelledby="editor-title">
+  <h2 id="editor-title">记录</h2>
+  <form id="editor-form" onsubmit="return false">
+    <div id="editor-fields"></div>
+    <p id="editor-error" class="form-error" role="alert" hidden></p>
+    <div id="unsaved-backup" hidden>
+      <p>这次没有保存。下面是尚未写入的副本，可以复制后另行保管。</p>
+      <pre id="unsaved-backup-text"></pre>
+      <button type="button" id="unsaved-backup-copy">复制未保存副本</button>
+    </div>
+    <div class="actions">
+      <button type="button" id="editor-cancel">取消</button>
+      <button type="submit" class="btn-primary" id="editor-save">保存记录</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="end-dialog" aria-labelledby="end-title">
+  <h2 id="end-title">结束行程：先导出</h2>
+  <p>请分别下载 Markdown 和 JSON。点过下载，并不代表文件已经保存并能打开。确认两个文件都能打开之后，再勾选下面两项。</p>
+  <p id="end-names"></p>
+  <div class="actions">
+    <button type="button" id="end-download-md" class="btn-primary">下载交接 Markdown</button>
+    <button type="button" id="end-download-json">下载交接 JSON</button>
+  </div>
+  <label class="check"><input type="checkbox" id="end-confirm-md" disabled> 我已把 Markdown 保存到设备，并且能打开</label>
+  <label class="check"><input type="checkbox" id="end-confirm-json" disabled> 我已把 JSON 保存到设备，并且能打开</label>
+  <p id="end-error" class="form-error" role="alert" hidden></p>
+  <div class="actions">
+    <button type="button" id="end-cancel">取消</button>
+    <button type="button" id="end-continue" class="btn-primary" disabled>继续确认归档</button>
+  </div>
+</dialog>
+
+<dialog id="archive-dialog" aria-labelledby="archive-title">
+  <h2 id="archive-title">确认归档此行程</h2>
+  <div id="archive-summary"></div>
+  <p>归档后这份行程变为只读，仍可浏览和再次导出。记录不会被删除。</p>
+  <p id="archive-error" class="form-error" role="alert" hidden></p>
+  <div class="actions">
+    <button type="button" id="archive-back" autofocus>返回</button>
+    <button type="button" id="archive-go" class="btn-primary">确认归档此行程</button>
+  </div>
+</dialog>
+
+<dialog id="match-dialog" aria-labelledby="match-title">
+  <h2 id="match-title">导入到当前行程</h2>
+  <p id="match-body"></p>
+  <form method="dialog" class="actions">
+    <button type="submit" value="cancel" autofocus>取消</button>
+    <button type="submit" value="import">导入这些票</button>
+  </form>
+</dialog>
+
+<dialog id="foreign-dialog" aria-labelledby="foreign-title">
+  <h2 id="foreign-title">这不是当前行程的票</h2>
+  <p id="foreign-body"></p>
+  <p>这些票不会自动加入当前行程，也不会改写当前行程的目的地。</p>
+  <form method="dialog" class="actions">
+    <button type="submit" value="cancel" autofocus>取消</button>
+    <button type="submit" value="attach">我确认归入当前行程</button>
+  </form>
+</dialog>
+
+<dialog id="establish-dialog" aria-labelledby="establish-title">
+  <h2 id="establish-title">用票务文件建立行程</h2>
+  <p id="establish-body"></p>
+  <p id="establish-id"></p>
+  <form id="establish-form" onsubmit="return false">
+    <div class="field">
+      <label for="tt-purpose">目的（必填）</label>
+      <input id="tt-purpose" name="purpose" type="text" maxlength="80" required autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="tt-destination">目的地（必填）</label>
+      <input id="tt-destination" name="destination" type="text" maxlength="80" required autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="tt-start">开始日期（必填）</label>
+      <input id="tt-start" name="start" type="date" required autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="tt-end">结束日期（必填）</label>
+      <input id="tt-end" name="end" type="date" required autocomplete="off">
+    </div>
+    <p id="establish-error" class="form-error" role="alert" hidden></p>
+    <div class="actions">
+      <button type="button" id="establish-cancel">取消</button>
+      <button type="submit" class="btn-primary" id="establish-save">建立行程并导入</button>
+      <button type="button" id="establish-keep" hidden>导入到归档（保持归档）</button>
+      <button type="button" id="establish-reactivate" hidden>恢复为进行中并导入</button>
+    </div>
+  </form>
+</dialog>
+
+<input id="ticket-file" type="file" accept="application/json,.json" hidden>
+<input id="backup-file" type="file" accept="application/json,.json" hidden>
+<noscript><p>需要启用 JavaScript。数据仍只放在本机。</p></noscript>
+<script>
+(() => {
+  'use strict';
+
+  const APP_VERSION = '1.0.0';
+  const DB_NAME = 'trip-hub';
+  const DB_VERSION = 1;
+  const MAX_BACKUP_CHARS = 32 * 1024 * 1024;
+  const MAX_TICKET_CHARS = 12 * 1024 * 1024;
+  const MAX_PDF_BYTES = 8 * 1024 * 1024;
+  const MAX_TICKETS = 30;
+  const MAX_RECORDS = 5000;
+  const ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const TIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+  const SHA_RE = /^[a-f0-9]{64}$/;
+  const CUR_RE = /^[A-Z]{3}$/;
+  const MODES = ['飞机', '火车', '长途汽车', '轮渡', '自驾', '其他'];
+  const SEVERITIES = ['低', '中', '高'];
+  const CATEGORIES = ['itinerary', 'transport', 'lodging', 'task', 'packing', 'problem', 'idea', 'expense', 'address', 'document'];
+  const DOC_TYPES = ['证件', '保险', '预订确认', '其他'];
+  const DOC_MIMES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'text/plain'];
+  const TIME_CATEGORIES = new Set(['itinerary', 'transport', 'lodging', 'task']);
+  const VIEWS = [
+    ['today', '今日'],
+    ['itinerary', '行程'],
+    ['transport', '交通'],
+    ['lodging', '住宿'],
+    ['task', '待办'],
+    ['packing', '打包'],
+    ['problem', '问题'],
+    ['idea', '点子'],
+    ['expense', '花费'],
+    ['address', '地址'],
+    ['document', '资料'],
+    ['ticket', '票务'],
+    ['recycle', '回收'],
+    ['archive', '归档'],
+    ['about', '关于']
+  ];
+  const VIEW_HEADING = {
+    today: '今日', itinerary: '行程', transport: '交通', lodging: '住宿', task: '待办',
+    packing: '打包', problem: '问题', idea: '点子', expense: '花费', address: '地址',
+    ticket: '票务', document: '资料', recycle: '回收站', archive: '归档', about: '关于'
+  };
+  const CATEGORY_LABEL = {
+    itinerary: '行程', transport: '交通', lodging: '住宿', task: '待办', packing: '打包',
+    problem: '问题', idea: '点子', expense: '花费', address: '地址', document: '资料'
+  };
+  const TRIP_KEYS = ['id', 'purpose', 'destination', 'start', 'end', 'status', 'createdAt', 'updatedAt', 'archivedAt'];
+  const ENTRY_KEYS = ['id', 'tripId', 'category', 'title', 'notes', 'scheduledAt', 'completed', 'completedAt', 'deleted', 'deletedAt', 'createdAt', 'updatedAt', 'details'];
+  const TICKET_KEYS = ['id', 'tripId', 'originalTripId', 'flightNo', 'date', 'origin', 'destination', 'departure', 'arrival', 'seat', 'pnr', 'eTicketNo', 'passName', 'passMime', 'passSize', 'passSha256', 'deleted', 'deletedAt', 'createdAt', 'updatedAt'];
+  const DETAIL_KEYS = {
+    itinerary: ['place'],
+    transport: ['mode', 'from', 'to', 'arrival'],
+    lodging: ['address', 'checkOut'],
+    task: ['place'],
+    packing: ['qty'],
+    problem: ['severity'],
+    idea: ['source', 'howToUse'],
+    expense: ['currency', 'kind', 'amountKnown', 'amount'],
+    address: ['address'],
+    document: ['docType', 'number', 'fileName', 'fileMime', 'fileSize', 'fileSha256']
+  };
+  const CHANGELOG = [
+    '本地行程、待办、打包、问题、点子、花费、地址与票务。',
+    'IndexedDB 写入后回读校验；失败时保留未保存内容。',
+    '票务文件导入校验 PDF 与 SHA-256，订座代号默认遮盖。',
+    '交接 Markdown 与 JSON；结束行程必须分两步确认。',
+    '回收站可恢复，不提供全部清除。',
+    '资料可保存标题、类型、可选号码和可选附件；号码默认遮盖，数据库不加密。',
+    '可以直接打开这个 HTML 文件；失败会停在页面上，不会静默清空。'
+  ];
+
+  const state = {
+    view: 'today',
+    trips: [],
+    entries: [],
+    tickets: [],
+    rawTrips: [],
+    activeTripId: null,
+    readonly: false,
+    problem: '',
+    inspectTripId: null,
+    revealed: null
+  };
+
+  let db = null;
+  let pendingTickets = null;
+  let lastBackupText = '';
+  let endFlow = null;
+  let confirmToken = 0;
+  let archiveBusy = false;
+  const countdownTimer = setInterval(tickCountdowns, 30000);
+
+  function need(cond, msg) {
+    if (!cond) throw new Error(msg);
+  }
+
+  function uid(prefix) {
+    if (typeof crypto.randomUUID === 'function') return prefix + crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return prefix + [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function nowIso() {
+    return new Date().toISOString();
+  }
+
+  function errorText(err) {
+    if (!err) return '操作失败，没有确认写入。';
+    if (err.name === 'QuotaExceededError' || /QuotaExceeded/i.test(String(err.message || ''))) {
+      return '存储空间不足，这次没有写入。刚才填写的内容还在。';
+    }
+    const msg = String(err.message || '');
+    if (msg && /[\u4e00-\u9fff]/.test(msg) && msg.length < 300) return msg;
+    return '保存失败，数据没有确认写入。';
+  }
+
+  function setAlert(id, message) {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.textContent = message || '';
+    node.hidden = !message;
+  }
+
+  function showBanner(message) {
+    const node = document.getElementById('error-banner');
+    if (!message) {
+      node.hidden = true;
+      node.textContent = '';
+      return;
+    }
+    node.hidden = false;
+    node.textContent = message;
+  }
+
+  function toast(message) {
+    const node = document.getElementById('toast');
+    node.textContent = message || '';
+  }
+
+  function showFailure(err) {
+    const message = errorText(err);
+    showBanner(message);
+    toast('');
+  }
+
+  function el(tag, props, children) {
+    const node = document.createElement(tag);
+    const opts = props || {};
+    if (opts.className) node.className = opts.className;
+    if (opts.id) node.id = opts.id;
+    if (opts.text != null) node.textContent = opts.text;
+    if (opts.type) node.type = opts.type;
+    if (opts.name) node.name = opts.name;
+    if (opts.htmlFor) node.htmlFor = opts.htmlFor;
+    if (opts.value != null && 'value' in node) node.value = opts.value;
+    if (opts.checked != null && 'checked' in node) node.checked = !!opts.checked;
+    if (opts.disabled) node.disabled = true;
+    if (opts.required) node.required = true;
+    if (opts.maxLength) node.maxLength = opts.maxLength;
+    if (opts.placeholder) node.placeholder = opts.placeholder;
+    if (opts.inputMode) node.inputMode = opts.inputMode;
+    if (opts.autoComplete) node.autocomplete = opts.autoComplete;
+    if (opts.spellcheck != null) node.spellcheck = opts.spellcheck;
+    if (opts.hidden) node.hidden = true;
+    if (opts.attrs) {
+      for (const [key, value] of Object.entries(opts.attrs)) {
+        if (value != null && value !== false) node.setAttribute(key, String(value));
+      }
+    }
+    if (opts.dataset) {
+      for (const [key, value] of Object.entries(opts.dataset)) {
+        if (value != null) node.dataset[key] = String(value);
+      }
+    }
+    if (opts.on) {
+      for (const [type, fn] of Object.entries(opts.on)) {
+        node.addEventListener(type, (event) => {
+          Promise.resolve().then(() => fn(event)).catch((err) => showFailure(err));
+        });
+      }
+    }
+    const list = Array.isArray(children) ? children : children == null ? [] : [children];
+    for (const child of list) {
+      if (child == null || child === false) continue;
+      node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+    }
+    return node;
+  }
+
+  function openDb() {
+    return new Promise((resolve, reject) => {
+      let req;
+      try {
+        req = indexedDB.open(DB_NAME, DB_VERSION);
+      } catch (err) {
+        reject(err);
+        return;
+      }
+      req.onupgradeneeded = () => {
+        const database = req.result;
+        if (!database.objectStoreNames.contains('trips')) database.createObjectStore('trips', { keyPath: 'id' });
+        if (!database.objectStoreNames.contains('entries')) {
+          const store = database.createObjectStore('entries', { keyPath: 'id' });
+          store.createIndex('tripId', 'tripId', { unique: false });
+        }
+        if (!database.objectStoreNames.contains('tickets')) {
+          const store = database.createObjectStore('tickets', { keyPath: 'id' });
+          store.createIndex('tripId', 'tripId', { unique: false });
+        }
+        if (!database.objectStoreNames.contains('files')) database.createObjectStore('files', { keyPath: 'id' });
+        if (!database.objectStoreNames.contains('snapshots')) database.createObjectStore('snapshots', { keyPath: 'id' });
+        if (!database.objectStoreNames.contains('meta')) database.createObjectStore('meta', { keyPath: 'key' });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error || new Error('无法打开数据库'));
+      req.onblocked = () => reject(new Error('数据库被其他标签页占用'));
+    });
+  }
+
+  function getAll(storeName) {
+    return new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction(storeName, 'readonly');
+        const req = tx.objectStore(storeName).getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error || new Error('读取失败'));
+        tx.onerror = () => reject(tx.error || new Error('读取失败'));
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  function getOne(storeName, key) {
+    return new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction(storeName, 'readonly');
+        const req = tx.objectStore(storeName).get(key);
+        req.onsuccess = () => resolve(req.result == null ? null : req.result);
+        req.onerror = () => reject(req.error || new Error('读取失败'));
+        tx.onerror = () => reject(tx.error || new Error('读取失败'));
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  function commit(storeNames, ops) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let cause = null;
+      const finish = (err) => {
+        if (settled) return;
+        settled = true;
+        if (err) reject(cause || err);
+        else resolve();
+      };
+      let tx;
+      try {
+        tx = db.transaction(storeNames, 'readwrite');
+      } catch (err) {
+        reject(err);
+        return;
+      }
+      tx.oncomplete = () => finish(null);
+      tx.onabort = () => finish(tx.error || cause || new Error('事务已中止'));
+      tx.onerror = () => finish(tx.error || cause || new Error('事务失败'));
+      try {
+        for (const op of ops) {
+          const store = tx.objectStore(op.store);
+          if (op.type === 'put') store.put(op.value);
+          else if (op.type === 'delete') store.delete(op.key);
+          else throw new Error('未知的写入操作');
+        }
+      } catch (err) {
+        cause = err;
+        try { tx.abort(); } catch (abortErr) { /* abort races with the original error */ }
+        finish(err);
+      }
+    });
+  }
+
+  function sha256HexFallback(bytes) {
+    const K = new Uint32Array([
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ]);
+    const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+    const bitLen = bytes.length * 8;
+    const withPad = new Uint8Array(((bytes.length + 9 + 63) >> 6) << 6);
+    withPad.set(bytes);
+    withPad[bytes.length] = 0x80;
+    const view = new DataView(withPad.buffer);
+    view.setUint32(withPad.length - 8, Math.floor(bitLen / 0x100000000));
+    view.setUint32(withPad.length - 4, bitLen >>> 0);
+    let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
+    let h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
+    const w = new Uint32Array(64);
+    for (let i = 0; i < withPad.length; i += 64) {
+      for (let t = 0; t < 16; t += 1) w[t] = view.getUint32(i + t * 4);
+      for (let t = 16; t < 64; t += 1) {
+        const s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ (w[t - 15] >>> 3);
+        const s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ (w[t - 2] >>> 10);
+        w[t] = (w[t - 16] + s0 + w[t - 7] + s1) >>> 0;
+      }
+      let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
+      for (let t = 0; t < 64; t += 1) {
+        const s1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+        const ch = (e & f) ^ (~e & g);
+        const temp1 = (h + s1 + ch + K[t] + w[t]) >>> 0;
+        const s0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+        const maj = (a & b) ^ (a & c) ^ (b & c);
+        const temp2 = (s0 + maj) >>> 0;
+        h = g; g = f; f = e; e = (d + temp1) >>> 0; d = c; c = b; b = a; a = (temp1 + temp2) >>> 0;
+      }
+      h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0;
+      h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0; h6 = (h6 + g) >>> 0; h7 = (h7 + h) >>> 0;
+    }
+    return [h0, h1, h2, h3, h4, h5, h6, h7].map((n) => n.toString(16).padStart(8, '0')).join('');
+  }
+
+  async function sha256Hex(bytes) {
+    const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    if (crypto.subtle && typeof crypto.subtle.digest === 'function') {
+      try {
+        const digest = await crypto.subtle.digest('SHA-256', data);
+        return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+      } catch (err) {
+        return sha256HexFallback(data);
+      }
+    }
+    return sha256HexFallback(data);
+  }
+
+  function bytesToBase64(bytes) {
+    let binary = '';
+    const chunk = 4096;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      const sub = bytes.subarray(i, Math.min(i + chunk, bytes.length));
+      let part = '';
+      for (let j = 0; j < sub.length; j += 1) part += String.fromCharCode(sub[j]);
+      binary += part;
+    }
+    return btoa(binary);
+  }
+
+  function base64ToBytes(b64, label) {
+    const name = label || '登机牌';
+    need(typeof b64 === 'string', name + '编码无效');
+    const clean = b64.replace(/\s+/g, '');
+    need(/^[A-Za-z0-9+/]*={0,2}$/.test(clean) && clean.length % 4 === 0, name + '编码无效');
+    const bin = atob(clean);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  function isPdfBytes(bytes) {
+    return bytes.length >= 5 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46 && bytes[4] === 0x2d;
+  }
+
+  function assertDocBytes(mime, bytes) {
+    if (mime === 'application/pdf') need(isPdfBytes(bytes), '附件不是 PDF，已拒绝导入');
+    else if (mime === 'image/jpeg') need(bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff, '附件不是 JPEG，已拒绝导入');
+    else if (mime === 'image/png') need(bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47, '附件不是 PNG，已拒绝导入');
+    else if (mime === 'image/gif') need(bytes.length >= 4 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38, '附件不是 GIF，已拒绝导入');
+    else if (mime === 'image/webp') need(bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50, '附件不是 WebP，已拒绝导入');
+    else if (mime === 'text/plain') {
+      for (let i = 0; i < bytes.length; i += 1) need(bytes[i] !== 0, '纯文本附件含有空字符，已拒绝导入');
+    } else need(false, '附件类型无效');
+  }
+
+  function sniffDocMime(type, bytes) {
+    if (isPdfBytes(bytes)) return 'application/pdf';
+    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
+    if (bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';
+    if (bytes.length >= 4 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return 'image/gif';
+    if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp';
+    if (type === 'text/plain') return 'text/plain';
+    return null;
+  }
+
+  function safeFileName(name) {
+    const base = String(name || '').split(/[/\\]/).pop().replace(/[^\p{L}\p{N}._-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+    return base || 'attachment';
+  }
+
+  function isIsoDate(value) {
+    if (typeof value !== 'string' || !DATE_RE.test(value)) return false;
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  }
+
+  function isIsoDateTime(value) {
+    if (typeof value !== 'string' || !TIME_RE.test(value)) return false;
+    const date = value.slice(0, 10);
+    return isIsoDate(date) && !Number.isNaN(Date.parse(value));
+  }
+
+  function hasExplicitOffset(value) {
+    return typeof value === 'string' && /(?:Z|[+-]\d{2}:\d{2})$/.test(value) && isIsoDateTime(value);
+  }
+
+  function assertKeys(obj, required, optional) {
+    need(obj && typeof obj === 'object' && !Array.isArray(obj), '数据结构不正确');
+    const allow = new Set([...(required || []), ...(optional || [])]);
+    for (const key of Object.keys(obj)) {
+if (key === '__proto__' || key === 'constructor' || key === 'prototype' || !allow.has(key)) {
+      throw new Error('含有不允许的字段：' + key);
+    }
+    }
+    for (const key of required || []) {
+      if (!Object.prototype.hasOwnProperty.call(obj, key)) throw new Error('缺少必要字段：' + key);
+    }
+  }
+
+  function isId(value) {
+    return typeof value === 'string' && ID_RE.test(value);
+  }
+
+  function textExact(value, min, max) {
+    return typeof value === 'string' && value.length >= min && value.length <= max && value === value.trim();
+  }
+
+  function optionalText(value, max) {
+    return typeof value === 'string' && value.length <= max && value === value.trim();
+  }
+
+  function isMoney(value) {
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1e9 && Math.abs(value * 100 - Math.round(value * 100)) < 1e-6;
+  }
+
+  function normalizeDetails(category, details) {
+    assertKeys(details, DETAIL_KEYS[category]);
+    if (category === 'itinerary' || category === 'task') {
+      need(optionalText(details.place, 200), '地点无效');
+      return { place: details.place };
+    }
+    if (category === 'transport') {
+      need(MODES.includes(details.mode), '交通方式无效');
+      need(optionalText(details.from, 200) && optionalText(details.to, 200), '出发地或到达地无效');
+      need(details.arrival === null || isIsoDateTime(details.arrival), '到达时间无效');
+      return { mode: details.mode, from: details.from, to: details.to, arrival: details.arrival };
+    }
+    if (category === 'lodging') {
+      need(optionalText(details.address, 500), '住宿地址无效');
+      need(details.checkOut === null || isIsoDateTime(details.checkOut), '退房时间无效');
+      return { address: details.address, checkOut: details.checkOut };
+    }
+    if (category === 'packing') {
+      need(details.qty === null || (Number.isInteger(details.qty) && details.qty >= 0 && details.qty <= 9999), '数量无效');
+      return { qty: details.qty };
+    }
+    if (category === 'problem') {
+      need(SEVERITIES.includes(details.severity), '问题程度无效');
+      return { severity: details.severity };
+    }
+    if (category === 'idea') {
+      need(textExact(details.source, 1, 300), '请填写来源');
+      need(textExact(details.howToUse, 1, 1000), '请填写怎么用');
+      return { source: details.source, howToUse: details.howToUse };
+    }
+    if (category === 'expense') {
+      need(typeof details.currency === 'string' && CUR_RE.test(details.currency), '币种需要是三位字母');
+      need(details.kind === 'budget' || details.kind === 'paid', '花费类型无效');
+      need(typeof details.amountKnown === 'boolean', '金额状态无效');
+      if (details.amountKnown) need(isMoney(details.amount), '金额无效');
+      else need(details.amount === null, '未知金额不能写成 0');
+      return {
+        currency: details.currency,
+        kind: details.kind,
+        amountKnown: details.amountKnown,
+        amount: details.amountKnown ? details.amount : null
+      };
+    }
+    if (category === 'document') {
+      need(DOC_TYPES.includes(details.docType), '资料类型无效');
+      need(details.number === null || textExact(details.number, 1, 64), '号码无效');
+      if (details.fileSha256 === null) {
+        need(details.fileName === null && details.fileMime === null && details.fileSize === null, '附件信息不完整');
+      } else {
+        need(textExact(details.fileName, 1, 120) && !/[\\/]/.test(details.fileName), '附件名无效');
+        need(DOC_MIMES.includes(details.fileMime), '附件类型无效');
+        need(Number.isInteger(details.fileSize) && details.fileSize > 0 && details.fileSize <= MAX_PDF_BYTES, '附件长度无效');
+        need(typeof details.fileSha256 === 'string' && SHA_RE.test(details.fileSha256), '附件校验和无效');
+      }
+      return {
+        docType: details.docType,
+        number: details.number,
+        fileName: details.fileName,
+        fileMime: details.fileMime,
+        fileSize: details.fileSize,
+        fileSha256: details.fileSha256
+      };
+    }
+    need(textExact(details.address, 1, 500), '请填写地址');
+    return { address: details.address };
+  }
+
+  function normalizeEntry(input) {
+    assertKeys(input, ENTRY_KEYS);
+    need(isId(input.id), '记录编号无效');
+    need(isId(input.tripId), '行程编号无效');
+    need(CATEGORIES.includes(input.category), '记录类型无效');
+    need(textExact(input.title, 1, 200), '标题无效');
+    need(optionalText(input.notes, 4000), '备注无效');
+    if (TIME_CATEGORIES.has(input.category)) need(input.scheduledAt === null || isIsoDateTime(input.scheduledAt), '时间无效');
+    else need(input.scheduledAt === null, '这一类不能带预定时间');
+    need(typeof input.completed === 'boolean' && typeof input.deleted === 'boolean', '状态无效');
+    if (input.completed) need(isIsoDateTime(input.completedAt), '完成时间无效');
+    else need(input.completedAt === null, '完成时间无效');
+    if (input.deleted) need(isIsoDateTime(input.deletedAt), '删除时间无效');
+    else need(input.deletedAt === null, '删除时间无效');
+    need(isIsoDateTime(input.createdAt) && isIsoDateTime(input.updatedAt), '记录时间无效');
+    return {
+      id: input.id,
+      tripId: input.tripId,
+      category: input.category,
+      title: input.title,
+      notes: input.notes,
+      scheduledAt: input.scheduledAt,
+      completed: input.completed,
+      completedAt: input.completedAt,
+      deleted: input.deleted,
+      deletedAt: input.deletedAt,
+      createdAt: input.createdAt,
+      updatedAt: input.updatedAt,
+      details: normalizeDetails(input.category, input.details)
+    };
+  }
+
+  function normalizeTrip(input) {
+    assertKeys(input, TRIP_KEYS);
+    need(isId(input.id), '行程编号无效');
+    need(textExact(input.purpose, 1, 80), '请填写目的');
+    need(textExact(input.destination, 1, 80), '请填写目的地');
+    need(isIsoDate(input.start) && isIsoDate(input.end), '日期无效');
+    need(input.end >= input.start, '结束日期不能早于开始日期');
+    need(input.status === 'active' || input.status === 'archived', '行程状态无效');
+    if (input.status === 'archived') need(isIsoDateTime(input.archivedAt), '归档时间无效');
+    else need(input.archivedAt === null, '归档时间无效');
+    need(isIsoDateTime(input.createdAt) && isIsoDateTime(input.updatedAt), '行程时间无效');
+    return {
+      id: input.id,
+      purpose: input.purpose,
+      destination: input.destination,
+      start: input.start,
+      end: input.end,
+      status: input.status,
+      createdAt: input.createdAt,
+      updatedAt: input.updatedAt,
+      archivedAt: input.archivedAt
+    };
+  }
+
+  function isValidTrip(value) {
+    try { normalizeTrip(value); return true; } catch (err) { return false; }
+  }
+
+  function isValidEntry(value) {
+    try { normalizeEntry(value); return true; } catch (err) { return false; }
+  }
+
+  function normalizeStoredTicket(input) {
+    assertKeys(input, TICKET_KEYS);
+    need(isId(input.id) && isId(input.tripId) && isId(input.originalTripId), '票务编号无效');
+    need(textExact(input.flightNo, 1, 40), '航班号无效');
+    need(isIsoDate(input.date), '乘机日期无效');
+    need(textExact(input.origin, 1, 80) && textExact(input.destination, 1, 80), '航段无效');
+    need(isIsoDateTime(input.departure) && isIsoDateTime(input.arrival), '起飞或到达时间无效');
+    need(optionalText(input.seat, 20), '座位无效');
+    need(textExact(input.pnr, 1, 32), '订座代号无效');
+    need(input.eTicketNo === null || textExact(input.eTicketNo, 1, 40), '电子票号无效');
+    need(textExact(input.passName, 1, 120) && !/[\\/]/.test(input.passName), '登机牌文件名无效');
+    need(input.passMime === 'application/pdf', '登机牌类型无效');
+    need(Number.isInteger(input.passSize) && input.passSize >= 5, '登机牌长度无效');
+    need(typeof input.passSha256 === 'string' && SHA_RE.test(input.passSha256), '登机牌校验和无效');
+    need(typeof input.deleted === 'boolean', '票务状态无效');
+    if (input.deleted) need(isIsoDateTime(input.deletedAt), '票务删除时间无效');
+    else need(input.deletedAt === null, '票务删除时间无效');
+    need(isIsoDateTime(input.createdAt) && isIsoDateTime(input.updatedAt), '票务时间无效');
+    return {
+      id: input.id,
+      tripId: input.tripId,
+      originalTripId: input.originalTripId,
+      flightNo: input.flightNo,
+      date: input.date,
+      origin: input.origin,
+      destination: input.destination,
+      departure: input.departure,
+      arrival: input.arrival,
+      seat: input.seat,
+      pnr: input.pnr,
+      eTicketNo: input.eTicketNo,
+      passName: input.passName,
+      passMime: input.passMime,
+      passSize: input.passSize,
+      passSha256: input.passSha256,
+      deleted: input.deleted,
+      deletedAt: input.deletedAt,
+      createdAt: input.createdAt,
+      updatedAt: input.updatedAt
+    };
+  }
+
+  function isValidStoredTicket(value) {
+    try { normalizeStoredTicket(value); return true; } catch (err) { return false; }
+  }
+
+  function safeParse(text) {
+    return JSON.parse(text, (key, value) => {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        throw new Error('含有不安全的字段');
+      }
+      return value;
+    });
+  }
+
+  function parseJsonLimited(text, maxChars) {
+    need(typeof text === 'string' && text.trim(), '文件是空的');
+    need(text.length <= maxChars, '文件超过允许大小');
+    need(!text.includes('\u0000'), '文件含有不允许的空字符');
+    try {
+      return safeParse(text);
+    } catch (err) {
+      if (err && err.message === '含有不安全的字段') throw err;
+      throw new Error('文件不是有效的 JSON');
+    }
+  }
+
+  async function decodePass(pass) {
+    assertKeys(pass, ['name', 'mime', 'encoding', 'size', 'sha256', 'base64']);
+    need(textExact(pass.name, 1, 120) && !/[\\/]/.test(pass.name), '登机牌文件名无效');
+    need(pass.mime === 'application/pdf', '登机牌不是 PDF，已拒绝导入');
+    need(pass.encoding === 'base64', '登机牌编码无效');
+    need(Number.isInteger(pass.size) && pass.size >= 5 && pass.size <= MAX_PDF_BYTES, '登机牌长度无效');
+    need(typeof pass.sha256 === 'string' && SHA_RE.test(pass.sha256), '登机牌校验和无效');
+    const bytes = base64ToBytes(pass.base64);
+    need(bytes.length === pass.size, '登机牌长度与声明不一致，已拒绝导入');
+    need(isPdfBytes(bytes), '登机牌不是 PDF，已拒绝导入');
+    const hash = await sha256Hex(bytes);
+    need(hash === pass.sha256, '登机牌校验和不符，已拒绝导入');
+    return { bytes, name: pass.name, size: bytes.length, sha256: hash };
+  }
+
+  function flightFields(ticket) {
+    need(textExact(ticket.flightNo, 1, 40), '航班号无效');
+    need(isIsoDate(ticket.date), '乘机日期无效');
+    need(textExact(ticket.origin, 1, 80) && textExact(ticket.destination, 1, 80), '航段无效');
+    need(isIsoDateTime(ticket.departure) && isIsoDateTime(ticket.arrival), '起飞或到达时间需要带时区偏移');
+    need(optionalText(ticket.seat, 20), '座位无效');
+    need(textExact(ticket.pnr, 1, 32), '订座代号无效');
+    need(ticket.eTicketNo === null || textExact(ticket.eTicketNo, 1, 40), '电子票号无效');
+  }
+
+  async function validateTicketImport(data) {
+    assertKeys(data, ['format', 'schemaVersion', 'privacy', 'trip', 'tickets']);
+    need(data.format === 'trip-hub-ticket-import', '这不是可识别的票务文件');
+    need(data.schemaVersion === 1, '票务文件版本不受支持');
+    need(textExact(data.privacy, 1, 500), '票务文件缺少隐私说明');
+    assertKeys(data.trip, ['id'], ['purpose', 'destination', 'start', 'end']);
+    need(isId(data.trip.id), '票务文件里的行程编号无效');
+    const trip = { id: data.trip.id };
+    if (data.trip.purpose != null) {
+      need(textExact(String(data.trip.purpose).trim(), 1, 80) || textExact(data.trip.purpose, 1, 80), '票务文件里的目的无效');
+      trip.purpose = data.trip.purpose.trim();
+    }
+    if (data.trip.destination != null) trip.destination = String(data.trip.destination).trim();
+    if (data.trip.start != null) trip.start = data.trip.start;
+    if (data.trip.end != null) trip.end = data.trip.end;
+    if (trip.purpose != null) need(textExact(trip.purpose, 1, 80), '票务文件里的目的无效');
+    if (trip.destination != null) need(textExact(trip.destination, 1, 80), '票务文件里的目的地无效');
+    if (trip.start != null) need(isIsoDate(trip.start), '票务文件里的开始日期无效');
+    if (trip.end != null) need(isIsoDate(trip.end), '票务文件里的结束日期无效');
+    if (trip.start && trip.end) need(trip.end >= trip.start, '结束日期不能早于开始日期');
+    need(Array.isArray(data.tickets) && data.tickets.length <= MAX_TICKETS, '票的数量无效');
+    const seen = new Set();
+    const tickets = [];
+    let total = 0;
+    for (const raw of data.tickets) {
+      assertKeys(raw, ['id', 'tripId', 'flightNo', 'date', 'origin', 'destination', 'departure', 'arrival', 'seat', 'pnr', 'eTicketNo', 'boardingPass']);
+      need(isId(raw.id), '票编号无效');
+      need(!seen.has(raw.id), '票务文件里有重复编号');
+      seen.add(raw.id);
+      need(raw.tripId === data.trip.id, '票与文件中的行程编号不一致');
+      flightFields(raw);
+      const pass = await decodePass(raw.boardingPass);
+      total += pass.size;
+      need(total <= MAX_PDF_BYTES, '登机牌合计超过允许大小，已拒绝导入');
+      const stamp = nowIso();
+      tickets.push({
+        bytes: pass.bytes,
+        file: pass,
+        record: normalizeStoredTicket({
+          id: raw.id,
+          tripId: raw.tripId,
+          originalTripId: raw.tripId,
+          flightNo: raw.flightNo,
+          date: raw.date,
+          origin: raw.origin,
+          destination: raw.destination,
+          departure: raw.departure,
+          arrival: raw.arrival,
+          seat: raw.seat,
+          pnr: raw.pnr,
+          eTicketNo: raw.eTicketNo,
+          passName: pass.name,
+          passMime: 'application/pdf',
+          passSize: pass.size,
+          passSha256: pass.sha256,
+          deleted: false,
+          deletedAt: null,
+          createdAt: stamp,
+          updatedAt: stamp
+        })
+      });
+    }
+    return { trip, tickets };
+  }
+
+  async function ticketFromTransfer(raw, fallbackTripId) {
+    assertKeys(raw, ['id', 'tripId', 'originalTripId', 'flightNo', 'date', 'origin', 'destination', 'departure', 'arrival', 'seat', 'pnr', 'eTicketNo', 'boardingPass', 'deleted', 'deletedAt', 'createdAt', 'updatedAt']);
+    const pass = await decodePass(raw.boardingPass);
+    const record = normalizeStoredTicket({
+      id: raw.id,
+      tripId: raw.tripId || fallbackTripId,
+      originalTripId: raw.originalTripId,
+      flightNo: raw.flightNo,
+      date: raw.date,
+      origin: raw.origin,
+      destination: raw.destination,
+      departure: raw.departure,
+      arrival: raw.arrival,
+      seat: raw.seat,
+      pnr: raw.pnr,
+      eTicketNo: raw.eTicketNo,
+      passName: pass.name,
+      passMime: 'application/pdf',
+      passSize: pass.size,
+      passSha256: pass.sha256,
+      deleted: raw.deleted,
+      deletedAt: raw.deletedAt,
+      createdAt: raw.createdAt,
+      updatedAt: raw.updatedAt
+    });
+    need(record.passName === pass.name && record.passSha256 === pass.sha256 && record.passSize === pass.size, '登机牌描述不一致');
+    return {
+      record,
+      file: {
+        id: record.id,
+        blob: new Blob([pass.bytes], { type: 'application/pdf' }),
+        sha256: pass.sha256,
+        size: pass.size,
+        mime: 'application/pdf',
+        name: pass.name
+      }
+    };
+  }
+
+  async function validateBackup(data) {
+    need(data && typeof data === 'object' && !Array.isArray(data), '数据结构不正确');
+    need(data.format === 'trip-hub-backup' || data.format === 'trip-hub-handoff', '无法识别的文件格式，已拒绝导入');
+    need(data.schemaVersion === 1, '无法识别的备份版本，已拒绝导入');
+    assertKeys(data, ['format', 'schemaVersion', 'exportedAt', 'app', 'privacy', 'trips', 'entries', 'tickets'], ['attachments']);
+    need(isIsoDateTime(data.exportedAt), '导出时间无效');
+    assertKeys(data.app, ['name', 'version']);
+    need(textExact(data.app.name, 1, 40) && textExact(data.app.version, 1, 20), '应用信息不正确');
+    need(textExact(data.privacy, 1, 500), '备份缺少隐私说明');
+    let trips = data.trips;
+    let entries = data.entries;
+    let tickets = data.tickets;
+    if (data.format === 'trip-hub-handoff') {
+      need(!Array.isArray(trips) && trips && typeof trips === 'object', '交接文件的行程不正确');
+      trips = [trips];
+    }
+    need(Array.isArray(trips) && Array.isArray(entries) && Array.isArray(tickets), '备份结构不正确');
+    need(trips.length + entries.length + tickets.length <= MAX_RECORDS, '备份条目过多，已拒绝导入');
+    const normTrips = trips.map(normalizeTrip);
+    const normEntries = entries.map(normalizeEntry);
+    const seen = new Set();
+    for (const row of normTrips.concat(normEntries)) {
+      need(!seen.has(row.id), '备份里有重复编号');
+      seen.add(row.id);
+    }
+    const built = [];
+    let total = 0;
+    for (const raw of tickets) {
+      const item = await ticketFromTransfer(raw);
+      total += item.file.size;
+      need(total <= MAX_PDF_BYTES, '登机牌合计超过允许大小，已拒绝导入');
+      need(!seen.has(item.record.id), '备份里有重复编号');
+      seen.add(item.record.id);
+      built.push(item);
+    }
+    const tripIds = new Set(normTrips.map((t) => t.id));
+    for (const existing of state.rawTrips) {
+      if (existing && typeof existing.id === 'string') tripIds.add(existing.id);
+    }
+    for (const entry of normEntries) need(tripIds.has(entry.tripId), '记录指向不存在的行程');
+    for (const item of built) need(tripIds.has(item.record.tripId), '票务指向不存在的行程');
+    const attachmentFiles = [];
+    const attachmentList = data.attachments == null ? [] : data.attachments;
+    need(Array.isArray(attachmentList), '资料附件结构不正确');
+    for (const raw of attachmentList) {
+      assertKeys(raw, ['id', 'name', 'mime', 'encoding', 'size', 'sha256', 'base64']);
+      need(isId(raw.id), '资料附件编号无效');
+      need(raw.encoding === 'base64', '资料附件编码无效');
+      need(DOC_MIMES.includes(raw.mime), '资料附件类型无效');
+      need(textExact(raw.name, 1, 120) && !/[\\/]/.test(raw.name), '资料附件名无效');
+      need(Number.isInteger(raw.size) && raw.size > 0 && raw.size <= MAX_PDF_BYTES, '资料附件长度无效');
+      need(typeof raw.sha256 === 'string' && SHA_RE.test(raw.sha256), '资料附件校验和无效');
+      const bytes = base64ToBytes(raw.base64, '资料附件');
+      need(bytes.length === raw.size, '资料附件长度与声明不一致，已拒绝导入');
+      assertDocBytes(raw.mime, bytes);
+      const hash = await sha256Hex(bytes);
+      need(hash === raw.sha256, '资料附件校验和不符，已拒绝导入');
+      total += bytes.length;
+      need(total <= MAX_PDF_BYTES, '附件合计超过允许大小，已拒绝导入');
+      const entry = normEntries.find((item) => item.id === raw.id);
+      need(entry && entry.category === 'document', '资料附件没有对应的资料记录');
+      need(entry.details.fileSha256 === hash && entry.details.fileSize === bytes.length && entry.details.fileMime === raw.mime && entry.details.fileName === raw.name, '资料附件与记录不一致');
+      attachmentFiles.push({
+        id: raw.id,
+        blob: new Blob([bytes], { type: raw.mime }),
+        sha256: hash,
+        size: bytes.length,
+        mime: raw.mime,
+        name: raw.name
+      });
+    }
+    for (const entry of normEntries) {
+      if (entry.category !== 'document' || !entry.details.fileSha256) continue;
+      need(attachmentFiles.some((file) => file.id === entry.id), '资料记录缺少附件，已拒绝导入');
+    }
+    const status = new Map();
+    for (const existing of state.rawTrips) {
+      if (existing && typeof existing.id === 'string' && (existing.status === 'active' || existing.status === 'archived')) {
+        status.set(existing.id, existing.status);
+      }
+    }
+    for (const trip of normTrips) status.set(trip.id, trip.status);
+    const activeCount = [...status.values()].filter((item) => item === 'active').length;
+    need(activeCount <= 1, '导入后会同时存在多个进行中的行程，已拒绝，原数据未改。');
+    return {
+      trips: normTrips,
+      entries: normEntries,
+      tickets: built.map((item) => item.record),
+      files: built.map((item) => item.file).concat(attachmentFiles)
+    };
+  }
+
+  function activeTrip() {
+    return state.trips.find((trip) => trip.id === state.activeTripId) || null;
+  }
+
+  function tripById(id) {
+    return state.trips.find((trip) => trip.id === id) || null;
+  }
+
+  async function loadState() {
+    const trips = await getAll('trips');
+    const entries = await getAll('entries');
+    const tickets = await getAll('tickets');
+    state.rawTrips = trips;
+    state.trips = [];
+    state.entries = [];
+    state.tickets = [];
+    let rejected = 0;
+    for (const trip of trips) {
+      if (isValidTrip(trip)) state.trips.push(normalizeTrip(trip));
+      else rejected += 1;
+    }
+    for (const entry of entries) {
+      if (isValidEntry(entry)) state.entries.push(normalizeEntry(entry));
+      else rejected += 1;
+    }
+    for (const ticket of tickets) {
+      if (isValidStoredTicket(ticket)) state.tickets.push(normalizeStoredTicket(ticket));
+      else rejected += 1;
+    }
+    const actives = trips.filter((trip) => trip && trip.status === 'active' && typeof trip.id === 'string');
+    state.readonly = false;
+    state.problem = '';
+    state.activeTripId = null;
+    if (actives.length > 1) {
+      state.readonly = true;
+      state.problem = '发现多个进行中的行程。已停止写入，没有删除任何行程。';
+    } else if (actives.length === 1) {
+      if (isValidTrip(actives[0])) state.activeTripId = actives[0].id;
+      else {
+        state.readonly = true;
+        state.problem = '进行中的行程无法校验。已停止写入，没有覆盖它。';
+      }
+    }
+    if (rejected && !state.problem) {
+      state.readonly = true;
+      state.problem = '有 ' + rejected + ' 条记录未通过校验。已停止写入，没有删除或覆盖它们。';
+    }
+  }
+
+  async function reloadState() {
+    const view = state.view;
+    const inspectTripId = state.inspectTripId;
+    await loadState();
+    state.view = view;
+    state.inspectTripId = inspectTripId;
+    state.revealed = null;
+    render();
+    await updateStorageUi();
+  }
+
+  function stable(value) {
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(stable).join(',') + ']';
+    const keys = Object.keys(value).sort();
+    return '{' + keys.map((key) => JSON.stringify(key) + ':' + stable(value[key])).join(',') + '}';
+  }
+
+  function sameValue(a, b) {
+    return stable(a) === stable(b);
+  }
+
+  async function putVerified(storeName, value) {
+    await commit([storeName], [{ store: storeName, type: 'put', value }]);
+    const got = await getOne(storeName, value.id || value.key);
+    need(got && sameValue(got, value), '回读校验失败，没有确认写入');
+    return got;
+  }
+
+  async function saveFileVerified(file) {
+    await commit(['files'], [{ store: 'files', type: 'put', value: file }]);
+    const got = await getOne('files', file.id);
+    need(got && got.blob, '登机牌回读失败');
+    const bytes = new Uint8Array(await got.blob.arrayBuffer());
+    const hash = await sha256Hex(bytes);
+    need(hash === file.sha256 && bytes.length === file.size, '登机牌校验和不符，已停止确认保存');
+    return got;
+  }
+
+  async function capture(storeName, ids) {
+    const map = new Map();
+    for (const id of ids) map.set(id, await getOne(storeName, id));
+    return map;
+  }
+
+  async function createSnapshot(reason) {
+    const payload = await buildBackupJson();
+    validateBackupShapeOnly(payload);
+    const record = {
+      id: uid('s-'),
+      createdAt: nowIso(),
+      reason,
+      json: JSON.stringify(payload)
+    };
+    await commit(['snapshots'], [{ store: 'snapshots', type: 'put', value: record }]);
+    const got = await getOne('snapshots', record.id);
+    need(got && got.json === record.json, '无法保存导入前快照，已取消导入，原数据未改。');
+    return record;
+  }
+
+  function validateBackupShapeOnly(data) {
+    need(data && data.format === 'trip-hub-backup' && data.schemaVersion === 1, '导出的备份结构不正确');
+    need(Array.isArray(data.trips) && Array.isArray(data.entries) && Array.isArray(data.tickets), '导出的备份结构不正确');
+  }
+
+  async function compensate(prev) {
+    const ops = [];
+    for (const storeName of ['trips', 'entries', 'tickets', 'files']) {
+      const map = prev[storeName];
+      for (const [id, old] of map) {
+        if (old) ops.push({ store: storeName, type: 'put', value: old });
+        else ops.push({ store: storeName, type: 'delete', key: id });
+      }
+    }
+    if (prev.meta) ops.push({ store: 'meta', type: 'put', value: prev.meta });
+    else ops.push({ store: 'meta', type: 'delete', key: 'activeTripId' });
+    if (ops.length) await commit(['trips', 'entries', 'tickets', 'files', 'meta'], ops);
+  }
+
+  async function mergeNormalized(norm, reason, options) {
+    const opts = options || {};
+    const tripIds = norm.trips.map((trip) => trip.id);
+    const entryIds = norm.entries.map((entry) => entry.id);
+    const ticketIds = norm.tickets.map((ticket) => ticket.id);
+    const prev = {
+      trips: await capture('trips', tripIds),
+      entries: await capture('entries', entryIds),
+      tickets: await capture('tickets', ticketIds),
+      files: await capture('files', ticketIds),
+      meta: await getOne('meta', 'activeTripId')
+    };
+    if (opts.preserveCreatedAt) {
+      norm.tickets = norm.tickets.map((ticket) => {
+        const old = prev.tickets.get(ticket.id);
+        if (old && isIsoDateTime(old.createdAt)) return normalizeStoredTicket({ ...ticket, createdAt: old.createdAt });
+        return ticket;
+      });
+    }
+    try {
+      await createSnapshot(reason);
+    } catch (err) {
+      const message = errorText(err);
+      if (message.includes('未改') || message.includes('没有写入')) throw err;
+      throw new Error('无法保存导入前快照，已取消导入，原数据未改。');
+    }
+    const status = new Map();
+    for (const existing of state.rawTrips) {
+      if (existing && typeof existing.id === 'string' && (existing.status === 'active' || existing.status === 'archived')) {
+        status.set(existing.id, existing.status);
+      }
+    }
+    for (const trip of norm.trips) status.set(trip.id, trip.status);
+    const activeIds = [...status.entries()].filter((pair) => pair[1] === 'active').map((pair) => pair[0]);
+    need(activeIds.length <= 1, '导入后会同时存在多个进行中的行程，已拒绝，原数据未改。');
+    const metaValue = { key: 'activeTripId', value: activeIds[0] || null };
+    const ops = [{ store: 'meta', type: 'put', value: metaValue }];
+    for (const trip of norm.trips) ops.push({ store: 'trips', type: 'put', value: trip });
+    for (const entry of norm.entries) ops.push({ store: 'entries', type: 'put', value: entry });
+    for (const ticket of norm.tickets) ops.push({ store: 'tickets', type: 'put', value: ticket });
+    for (const file of norm.files) ops.push({ store: 'files', type: 'put', value: file });
+    try {
+      await commit(['trips', 'entries', 'tickets', 'files', 'meta'], ops);
+    } catch (err) {
+      if (err && (err.name === 'QuotaExceededError' || /QuotaExceeded/i.test(String(err.message || '')))) {
+        throw new Error('存储空间不足，导入没有写入。');
+      }
+      throw new Error('导入没有写入。' + (err && err.message ? '（' + err.message + '）' : ''));
+    }
+    try {
+      for (const trip of norm.trips) {
+        const got = await getOne('trips', trip.id);
+        need(got && sameValue(normalizeTrip(got), trip), '回读校验失败，没有确认写入');
+      }
+      for (const entry of norm.entries) {
+        const got = await getOne('entries', entry.id);
+        need(got && sameValue(normalizeEntry(got), entry), '回读校验失败，没有确认写入');
+      }
+      for (const ticket of norm.tickets) {
+        const got = await getOne('tickets', ticket.id);
+        need(got && sameValue(normalizeStoredTicket(got), ticket), '回读校验失败，没有确认写入');
+      }
+      for (const file of norm.files) {
+        const got = await getOne('files', file.id);
+        need(got && got.blob, '登机牌回读失败');
+        const bytes = new Uint8Array(await got.blob.arrayBuffer());
+        const hash = await sha256Hex(bytes);
+        need(hash === file.sha256 && bytes.length === file.size, '登机牌校验和不符，已停止确认保存');
+      }
+      const meta = await getOne('meta', 'activeTripId');
+      need(meta && meta.value === metaValue.value, '回读校验失败，没有确认写入');
+    } catch (err) {
+      try {
+        await compensate(prev);
+      } catch (restoreErr) {
+        throw new Error('导入后校验失败，自动恢复也失败。请使用导入前快照。');
+      }
+      throw new Error('导入后校验失败，已恢复导入前的记录。');
+    }
+    await reloadState();
+  }
+
+  function guardWritable() {
+    need(!state.readonly, state.problem || '当前已停止写入。');
+  }
+
+  async function saveTripFromForm(existing) {
+    guardWritable();
+    const purpose = document.getElementById('trip-purpose').value.trim();
+    const destination = document.getElementById('trip-destination').value.trim();
+    const start = document.getElementById('trip-start').value;
+    const end = document.getElementById('trip-end').value;
+    const stamp = nowIso();
+    const trip = normalizeTrip({
+      id: existing ? existing.id : uid('t-'),
+      purpose,
+      destination,
+      start,
+      end,
+      status: existing ? existing.status : 'active',
+      createdAt: existing ? existing.createdAt : stamp,
+      updatedAt: stamp,
+      archivedAt: existing ? existing.archivedAt : null
+    });
+    if (!existing) {
+      const actives = state.rawTrips.filter((item) => item && item.status === 'active');
+      need(actives.length === 0, '请先结束当前行程');
+    }
+    await commit(['trips', 'meta'], [
+      { store: 'trips', type: 'put', value: trip },
+      { store: 'meta', type: 'put', value: { key: 'activeTripId', value: trip.status === 'active' ? trip.id : null } }
+    ]);
+    const got = await getOne('trips', trip.id);
+    const meta = await getOne('meta', 'activeTripId');
+    need(got && sameValue(normalizeTrip(got), trip), '回读校验失败，没有确认写入');
+    if (trip.status === 'active') need(meta && meta.value === trip.id, '回读校验失败，没有确认写入');
+    showBanner('');
+    await reloadState();
+    toast('已保存');
+  }
+
+  function defaultOffset() {
+    const mins = -new Date().getTimezoneOffset();
+    const sign = mins >= 0 ? '+' : '-';
+    const abs = Math.abs(mins);
+    return sign + String(Math.floor(abs / 60)).padStart(2, '0') + ':' + String(abs % 60).padStart(2, '0');
+  }
+
+  function offsetOptions() {
+    const values = ['Z'];
+    for (let hour = -12; hour <= 14; hour += 1) {
+      for (const minute of [0, 30]) {
+        if (hour === 14 && minute === 30) continue;
+        const sign = hour >= 0 ? '+' : '-';
+        values.push(sign + String(Math.abs(hour)).padStart(2, '0') + ':' + String(minute).padStart(2, '0'));
+      }
+    }
+    return values;
+  }
+
+  function splitIso(iso) {
+    const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2})?(?:\.\d+)?(Z|[+-]\d{2}:\d{2})$/.exec(iso || '');
+    if (!match) return null;
+    return { date: match[1], time: match[2], offset: match[3] };
+  }
+
+  function buildIso(date, time, offset) {
+    need(isIsoDate(date), '日期无效');
+    need(/^\d{2}:\d{2}$/.test(time), '时间无效');
+    need(offset === 'Z' || /^[+-]\d{2}:\d{2}$/.test(offset), '时区偏移无效');
+    const iso = date + 'T' + time + ':00' + (offset === 'Z' ? 'Z' : offset);
+    need(isIsoDateTime(iso), '时间无效');
+    return iso;
+  }
+
+  function timeInputs(prefix, iso) {
+    const parts = iso ? splitIso(iso) : null;
+    const wrap = el('div', { className: 'subcard' });
+    const skip = el('input', { id: prefix + '-skip', type: 'checkbox', checked: !parts });
+    wrap.append(el('label', { className: 'check', htmlFor: skip.id }, [skip, ' 不设定具体时间']));
+    const date = el('input', { id: prefix + '-date', type: 'date', value: parts ? parts.date : '', autoComplete: 'off' });
+    const time = el('input', { id: prefix + '-time', type: 'time', value: parts ? parts.time : '', autoComplete: 'off' });
+    const select = el('select', { id: prefix + '-offset' });
+    const current = parts ? parts.offset : defaultOffset();
+    for (const value of offsetOptions()) {
+      const option = el('option', { value, text: value === 'Z' ? 'UTC+00:00（Z）' : 'UTC' + value });
+      if (value === current) option.selected = true;
+      select.append(option);
+    }
+    wrap.append(
+      el('div', { className: 'field' }, [el('label', { htmlFor: date.id, text: '日期' }), date]),
+      el('div', { className: 'field' }, [el('label', { htmlFor: time.id, text: '时间' }), time]),
+      el('div', { className: 'field' }, [el('label', { htmlFor: select.id, text: '时区偏移' }), select])
+    );
+    return wrap;
+  }
+
+  function readTime(prefix) {
+    const skip = document.getElementById(prefix + '-skip');
+    if (skip && skip.checked) return null;
+    return buildIso(
+      document.getElementById(prefix + '-date').value,
+      document.getElementById(prefix + '-time').value,
+      document.getElementById(prefix + '-offset').value
+    );
+  }
+
+  function textInput(id, label, value, max, extra) {
+    const input = el('input', Object.assign({
+      id,
+      type: 'text',
+      value: value || '',
+      maxLength: max,
+      autoComplete: 'off',
+      required: true
+    }, extra || {}));
+    return el('div', { className: 'field' }, [el('label', { htmlFor: id, text: label }), input]);
+  }
+
+  function openEditor(category, entry) {
+    const trip = activeTrip();
+    need(trip, '请先新建行程');
+    guardWritable();
+    const dialog = document.getElementById('editor-dialog');
+    const stamp = nowIso();
+    dialog.dataset.category = category;
+    dialog.dataset.entryId = entry ? entry.id : uid('e-');
+    dialog.dataset.tripId = trip.id;
+    dialog.dataset.createdAt = entry ? entry.createdAt : stamp;
+    dialog.dataset.completed = entry && entry.completed ? '1' : '0';
+    dialog.dataset.completedAt = entry && entry.completedAt ? entry.completedAt : '';
+    dialog.dataset.deleted = entry && entry.deleted ? '1' : '0';
+    dialog.dataset.deletedAt = entry && entry.deletedAt ? entry.deletedAt : '';
+    document.getElementById('editor-title').textContent = (entry ? '编辑' : '新建') + CATEGORY_LABEL[category];
+    setAlert('editor-error', '');
+    const backup = document.getElementById('unsaved-backup');
+    backup.hidden = true;
+    document.getElementById('unsaved-backup-text').textContent = '';
+    const fields = document.getElementById('editor-fields');
+    fields.replaceChildren();
+    const details = entry ? entry.details : {};
+    fields.append(textInput('f-title', '标题（必填）', entry ? entry.title : '', 200));
+    const notes = el('textarea', { id: 'f-notes', maxLength: 4000, placeholder: '备注，可留空' });
+    notes.value = entry ? entry.notes : '';
+    fields.append(el('div', { className: 'field' }, [el('label', { htmlFor: 'f-notes', text: '备注' }), notes]));
+    if (TIME_CATEGORIES.has(category)) fields.append(timeInputs('when', entry ? entry.scheduledAt : null));
+    if (category === 'itinerary' || category === 'task') {
+      fields.append(textInput('f-place', '地点', details.place || '', 200, { required: false }));
+    }
+    if (category === 'transport') {
+      const select = el('select', { id: 'f-mode' });
+      for (const mode of MODES) {
+        const option = el('option', { value: mode, text: mode });
+        if ((details.mode || '飞机') === mode) option.selected = true;
+        select.append(option);
+      }
+      fields.append(el('div', { className: 'field' }, [el('label', { htmlFor: 'f-mode', text: '方式' }), select]));
+      fields.append(textInput('f-from', '出发地', details.from || '', 200, { required: false }));
+      fields.append(textInput('f-to', '到达地', details.to || '', 200, { required: false }));
+      fields.append(el('p', { text: '到达时间（可留空）' }));
+      fields.append(timeInputs('arrive', details.arrival || null));
+    }
+    if (category === 'lodging') {
+      fields.append(textInput('f-address', '地址', details.address || '', 500, { required: false }));
+      fields.append(el('p', { text: '退房时间（可留空）' }));
+      fields.append(timeInputs('checkout', details.checkOut || null));
+    }
+    if (category === 'packing') {
+      const qty = el('input', {
+        id: 'f-qty',
+        type: 'text',
+        inputMode: 'numeric',
+        value: details.qty == null ? '' : String(details.qty),
+        autoComplete: 'off',
+        placeholder: '留空表示未填，不会当成 0'
+      });
+      fields.append(el('div', { className: 'field' }, [el('label', { htmlFor: 'f-qty', text: '数量' }), qty]));
+    }
+    if (category === 'problem') {
+      const select = el('select', { id: 'f-severity' });
+      for (const level of SEVERITIES) {
+        const option = el('option', { value: level, text: level });
+        if ((details.severity || '中') === level) option.selected = true;
+        select.append(option);
+      }
+      fields.append(el('div', { className: 'field' }, [el('label', { htmlFor: 'f-severity', text: '程度' }), select]));
+    }
+    if (category === 'idea') {
+      fields.append(textInput('f-source', '来源（必填）', details.source || '', 300));
+      const how = el('textarea', { id: 'f-how', maxLength: 1000 });
+      how.value = details.howToUse || '';
+      fields.append(el('div', { className: 'field' }, [el('label', { htmlFor: 'f-how', text: '怎么用（必填）' }), how]));
+    }
+    if (category === 'expense') {
+      fields.append(textInput('f-currency', '币种（必填）', details.currency || '', 3, {
+        placeholder: '三位字母',
+        spellcheck: false
+      }));
+      const budget = el('input', { id: 'f-kind-budget', type: 'radio', name: 'kind', value: 'budget', checked: !details.kind || details.kind === 'budget' });
+      const paid = el('input', { id: 'f-kind-paid', type: 'radio', name: 'kind', value: 'paid', checked: details.kind === 'paid' });
+      fields.append(el('div', { className: 'field' }, [
+        el('span', { text: '类型（必填）' }),
+        el('label', { className: 'check', htmlFor: 'f-kind-budget' }, [budget, ' 预算']),
+        el('label', { className: 'check', htmlFor: 'f-kind-paid' }, [paid, ' 已付'])
+      ]));
+      const unknown = el('input', { id: 'f-unknown', type: 'checkbox', checked: details.amountKnown === false });
+      const amount = el('input', {
+        id: 'f-amount',
+        type: 'text',
+        inputMode: 'decimal',
+        value: details.amountKnown ? String(details.amount) : '',
+        disabled: details.amountKnown === false,
+        placeholder: '未知就留空',
+        autoComplete: 'off'
+      });
+      unknown.addEventListener('change', () => {
+        amount.disabled = unknown.checked;
+        if (unknown.checked) amount.value = '';
+      });
+      fields.append(el('label', { className: 'check', htmlFor: 'f-unknown' }, [unknown, ' 金额未知']));
+      fields.append(el('div', { className: 'field' }, [el('label', { htmlFor: 'f-amount', text: '金额' }), amount]));
+    }
+    if (category === 'address') fields.append(textInput('f-address', '地址（必填）', details.address || '', 500));
+    if (category === 'document') {
+      const select = el('select', { id: 'f-doc-type' });
+      for (const type of DOC_TYPES) {
+        const option = el('option', { value: type, text: type });
+        if ((details.docType || '其他') === type) option.selected = true;
+        select.append(option);
+      }
+      fields.append(el('div', { className: 'field' }, [el('label', { htmlFor: 'f-doc-type', text: '类型' }), select]));
+      const number = el('input', {
+        id: 'f-doc-number',
+        type: 'password',
+        maxLength: 64,
+        autoComplete: 'off',
+        spellcheck: false,
+        placeholder: '可留空，不会当成必填'
+      });
+      number.value = details.number || '';
+      fields.append(el('div', { className: 'field' }, [el('label', { htmlFor: 'f-doc-number', text: '号码（可选）' }), number]));
+      fields.append(el('p', { className: 'meta', text: '号码可以不填。保存后默认遮盖，数据库没有加密。' }));
+      const file = el('input', { id: 'f-doc-file', type: 'file', autoComplete: 'off' });
+      file.setAttribute('accept', 'application/pdf,image/jpeg,image/png,image/webp,image/gif,text/plain,.pdf,.jpg,.jpeg,.png,.webp,.gif,.txt');
+      fields.append(el('div', { className: 'field' }, [el('label', { htmlFor: 'f-doc-file', text: '附件（可选）' }), file]));
+      if (details.fileName) {
+        fields.append(el('p', { className: 'meta', text: '已有附件：' + details.fileName }));
+        const remove = el('input', { id: 'f-doc-remove', type: 'checkbox' });
+        fields.append(el('label', { className: 'check', htmlFor: 'f-doc-remove' }, [remove, ' 移除已有附件']));
+      }
+      dialog.dataset.fileName = details.fileName || '';
+      dialog.dataset.fileMime = details.fileMime || '';
+      dialog.dataset.fileSize = details.fileSize == null ? '' : String(details.fileSize);
+      dialog.dataset.fileSha = details.fileSha256 || '';
+    }
+    if (!dialog.open) dialog.showModal();
+    const title = document.getElementById('f-title');
+    if (title) title.focus();
+  }
+
+  async function readOptionalDocFile() {
+    const remove = document.getElementById('f-doc-remove');
+    const input = document.getElementById('f-doc-file');
+    const chosen = input && input.files && input.files[0];
+    if (chosen) {
+      need(chosen.size > 0 && chosen.size <= MAX_PDF_BYTES, '附件超过允许大小，没有保存。');
+      const bytes = new Uint8Array(await chosen.arrayBuffer());
+      const mime = sniffDocMime(chosen.type, bytes);
+      need(mime, '只接受 PDF、JPEG、PNG、WebP、GIF 或纯文本附件。');
+      if (mime === 'text/plain') assertDocBytes(mime, bytes);
+      const sha256 = await sha256Hex(bytes);
+      return { bytes, mime, size: bytes.length, sha256, name: safeFileName(chosen.name) };
+    }
+    if (remove && remove.checked) return { remove: true };
+    return null;
+  }
+
+  function collectEntry(docFile) {
+    const dialog = document.getElementById('editor-dialog');
+    const category = dialog.dataset.category;
+    const details = {};
+    let scheduledAt = null;
+    if (TIME_CATEGORIES.has(category)) scheduledAt = readTime('when');
+    if (category === 'itinerary' || category === 'task') details.place = document.getElementById('f-place').value.trim();
+    if (category === 'transport') {
+      details.mode = document.getElementById('f-mode').value;
+      details.from = document.getElementById('f-from').value.trim();
+      details.to = document.getElementById('f-to').value.trim();
+      details.arrival = readTime('arrive');
+    }
+    if (category === 'lodging') {
+      details.address = document.getElementById('f-address').value.trim();
+      details.checkOut = readTime('checkout');
+    }
+    if (category === 'packing') {
+      const raw = document.getElementById('f-qty').value.trim();
+      if (!raw) details.qty = null;
+      else {
+        need(/^\d+$/.test(raw), '数量要是整数，或留空表示未填');
+        details.qty = Number(raw);
+      }
+    }
+    if (category === 'problem') details.severity = document.getElementById('f-severity').value;
+    if (category === 'idea') {
+      details.source = document.getElementById('f-source').value.trim();
+      details.howToUse = document.getElementById('f-how').value.trim();
+    }
+    if (category === 'expense') {
+      details.currency = document.getElementById('f-currency').value.trim().toUpperCase();
+      details.kind = document.getElementById('f-kind-paid').checked ? 'paid' : 'budget';
+      details.amountKnown = !document.getElementById('f-unknown').checked;
+      if (!details.amountKnown) details.amount = null;
+      else {
+        const raw = document.getElementById('f-amount').value.trim();
+        need(/^\d+(\.\d{1,2})?$/.test(raw), '请填写金额，或勾选金额未知');
+        details.amount = Math.round(Number(raw) * 100) / 100;
+      }
+    }
+    if (category === 'address') details.address = document.getElementById('f-address').value.trim();
+    if (category === 'document') {
+      const rawNumber = document.getElementById('f-doc-number').value.trim();
+      details.docType = document.getElementById('f-doc-type').value;
+      details.number = rawNumber || null;
+      if (docFile && docFile.bytes) {
+        details.fileName = docFile.name;
+        details.fileMime = docFile.mime;
+        details.fileSize = docFile.size;
+        details.fileSha256 = docFile.sha256;
+      } else if (docFile && docFile.remove) {
+        details.fileName = null;
+        details.fileMime = null;
+        details.fileSize = null;
+        details.fileSha256 = null;
+      } else if (dialog.dataset.fileSha) {
+        details.fileName = dialog.dataset.fileName;
+        details.fileMime = dialog.dataset.fileMime;
+        details.fileSize = Number(dialog.dataset.fileSize);
+        details.fileSha256 = dialog.dataset.fileSha;
+      } else {
+        details.fileName = null;
+        details.fileMime = null;
+        details.fileSize = null;
+        details.fileSha256 = null;
+      }
+    }
+    const completed = dialog.dataset.completed === '1';
+    const deleted = dialog.dataset.deleted === '1';
+    return normalizeEntry({
+      id: dialog.dataset.entryId,
+      tripId: dialog.dataset.tripId,
+      category,
+      title: document.getElementById('f-title').value.trim(),
+      notes: document.getElementById('f-notes').value.trim(),
+      scheduledAt,
+      completed,
+      completedAt: completed ? dialog.dataset.completedAt : null,
+      deleted,
+      deletedAt: deleted ? dialog.dataset.deletedAt : null,
+      createdAt: dialog.dataset.createdAt,
+      updatedAt: nowIso(),
+      details
+    });
+  }
+
+  async function saveEditor(event) {
+    event.preventDefault();
+    const saveButton = document.getElementById('editor-save');
+    if (saveButton.disabled) return;
+    let draft = null;
+    try {
+      guardWritable();
+      const trip = activeTrip();
+      need(trip && trip.id === document.getElementById('editor-dialog').dataset.tripId, '行程已经变化，没有保存。');
+      const docFile = document.getElementById('editor-dialog').dataset.category === 'document' ? await readOptionalDocFile() : null;
+      draft = collectEntry(docFile);
+      saveButton.disabled = true;
+      await saveDraft(draft, docFile);
+      document.getElementById('unsaved-backup').hidden = true;
+      clearDocumentForm();
+      document.getElementById('editor-dialog').close();
+      state.view = draft.category;
+      showBanner('');
+      await reloadState();
+      toast('已保存');
+    } catch (err) {
+      setAlert('editor-error', errorText(err));
+      showBanner(errorText(err));
+      if (draft) {
+        const visible = JSON.parse(JSON.stringify(draft));
+        if (visible.category === 'document' && visible.details && visible.details.number) visible.details.number = '已遮盖';
+        document.getElementById('unsaved-backup').hidden = false;
+        document.getElementById('unsaved-backup-text').textContent = JSON.stringify(visible, null, 2);
+      }
+    } finally {
+      saveButton.disabled = false;
+    }
+  }
+
+  function clearDocumentForm() {
+    const number = document.getElementById('f-doc-number');
+    const file = document.getElementById('f-doc-file');
+    if (number) number.value = '';
+    if (file) file.value = '';
+  }
+
+  async function saveDraft(draft, docFile) {
+    const ops = [{ store: 'entries', type: 'put', value: draft }];
+    const stores = ['entries'];
+    if (docFile && docFile.bytes) {
+      stores.push('files');
+      ops.push({
+        store: 'files',
+        type: 'put',
+        value: {
+          id: draft.id,
+          blob: new Blob([docFile.bytes], { type: docFile.mime }),
+          sha256: docFile.sha256,
+          size: docFile.size,
+          mime: docFile.mime,
+          name: docFile.name
+        }
+      });
+    } else if (docFile && docFile.remove) {
+      stores.push('files');
+      ops.push({ store: 'files', type: 'delete', key: draft.id });
+    }
+    await commit(stores, ops);
+    const got = await getOne('entries', draft.id);
+    need(got && sameValue(normalizeEntry(got), draft), '回读校验失败，没有确认写入');
+    if (draft.category === 'document' && draft.details.fileSha256) {
+      const file = await getOne('files', draft.id);
+      need(file && file.blob, '附件回读失败');
+      const bytes = new Uint8Array(await file.blob.arrayBuffer());
+      const hash = await sha256Hex(bytes);
+      need(hash === draft.details.fileSha256 && bytes.length === draft.details.fileSize, '附件校验和不符，已停止确认保存');
+    }
+    if (docFile && docFile.remove) need(!(await getOne('files', draft.id)), '附件没有删除，已停止确认保存');
+  }
+
+  async function mutateEntry(entry, changes) {
+    guardWritable();
+    const next = normalizeEntry(Object.assign({}, entry, changes, { updatedAt: nowIso(), details: entry.details }));
+    await putVerified('entries', next);
+    await reloadState();
+  }
+
+  async function mutateTicket(ticket, changes) {
+    guardWritable();
+    const next = normalizeStoredTicket(Object.assign({}, ticket, changes, { updatedAt: nowIso() }));
+    await putVerified('tickets', next);
+    await reloadState();
+  }
+
+  function askConfirm(opts) {
+    const token = ++confirmToken;
+    const dialog = document.getElementById('confirm-dialog');
+    document.getElementById('confirm-title').textContent = opts.title;
+    document.getElementById('confirm-body').textContent = opts.body;
+    document.getElementById('confirm-ok').textContent = opts.okLabel;
+    return new Promise((resolve) => {
+      const onClose = () => {
+        if (token !== confirmToken) return;
+        resolve(dialog.returnValue === 'confirm');
+        dialog.returnValue = '';
+      };
+      dialog.addEventListener('close', onClose, { once: true });
+      if (dialog.open) dialog.close('cancel');
+      dialog.returnValue = '';
+      dialog.showModal();
+    });
+  }
+
+  function showGuard(message) {
+    document.getElementById('guard-body').textContent = message;
+    const dialog = document.getElementById('guard-dialog');
+    if (!dialog.open) dialog.showModal();
+  }
+
+  function openTripDialog(existing) {
+    if (!existing) {
+      const actives = state.rawTrips.filter((item) => item && item.status === 'active' && typeof item.id === 'string');
+      if (actives.length || state.readonly) {
+        showGuard(state.readonly ? (state.problem || '当前已停止写入。') : '请先结束当前行程。当前行程不会被替换，也不会新建第二个进行中的行程。');
+        return;
+      }
+    } else {
+      try { guardWritable(); } catch (err) { showGuard(errorText(err)); return; }
+    }
+    const dialog = document.getElementById('trip-dialog');
+    dialog.dataset.mode = existing ? existing.id : '';
+    document.getElementById('trip-dialog-title').textContent = existing ? '编辑行程' : '新建行程';
+    document.getElementById('trip-purpose').value = existing ? existing.purpose : '';
+    document.getElementById('trip-destination').value = existing ? existing.destination : '';
+    document.getElementById('trip-start').value = existing ? existing.start : '';
+    document.getElementById('trip-end').value = existing ? existing.end : '';
+    setAlert('trip-error', '');
+    if (!dialog.open) dialog.showModal();
+  }
+
+  async function onTripSubmit(event) {
+    event.preventDefault();
+    const button = document.getElementById('trip-save');
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      const existingId = document.getElementById('trip-dialog').dataset.mode;
+      const existing = existingId ? tripById(existingId) : null;
+      await saveTripFromForm(existing);
+      document.getElementById('trip-dialog').close();
+    } catch (err) {
+      setAlert('trip-error', errorText(err));
+      showBanner(errorText(err));
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function formatCountdown(iso) {
+    const target = Date.parse(iso);
+    if (!Number.isFinite(target)) return '';
+    let delta = target - Date.now();
+    const past = delta < 0;
+    delta = Math.abs(delta);
+    const minute = 60000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    const days = Math.floor(delta / day);
+    const hours = Math.floor((delta % day) / hour);
+    const minutes = Math.floor((delta % hour) / minute);
+    let body = '不到1分钟';
+    if (days > 0) body = days + '天' + hours + '小时';
+    else if (hours > 0) body = hours + '小时' + minutes + '分';
+    else if (minutes > 0) body = minutes + '分钟';
+    return (past ? '已过 ' : '还有 ') + body;
+  }
+
+  function tickCountdowns() {
+    for (const node of document.querySelectorAll('[data-countdown-until]')) {
+      node.textContent = formatCountdown(node.dataset.countdownUntil);
+    }
+  }
+
+  function moneyLine(count, sum) {
+    if (!count) return '无已知金额';
+    return sum.toFixed(2) + '（' + count + ' 笔已知）';
+  }
+
+  function summarizeExpenses(entries) {
+    const map = new Map();
+    for (const entry of entries) {
+      if (entry.category !== 'expense') continue;
+      const details = entry.details;
+      if (!map.has(details.currency)) {
+        map.set(details.currency, { currency: details.currency, budgetSum: 0, budgetCount: 0, paidSum: 0, paidCount: 0, unknown: 0 });
+      }
+      const row = map.get(details.currency);
+      if (!details.amountKnown) {
+        row.unknown += 1;
+        continue;
+      }
+      if (details.kind === 'budget') {
+        row.budgetSum = Math.round((row.budgetSum + details.amount) * 100) / 100;
+        row.budgetCount += 1;
+      } else {
+        row.paidSum = Math.round((row.paidSum + details.amount) * 100) / 100;
+        row.paidCount += 1;
+      }
+    }
+    return [...map.values()].sort((a, b) => a.currency.localeCompare(b.currency));
+  }
+
+  function expenseNodes(entries) {
+    const rows = summarizeExpenses(entries.filter((entry) => !entry.deleted));
+    const wrap = el('div', { className: 'stack' });
+    if (!rows.length) {
+      wrap.append(el('p', { className: 'empty', text: '还没有花费。未知金额不会被当成 0。' }));
+      return wrap;
+    }
+    for (const row of rows) {
+      const card = el('section', { className: 'card', dataset: { currency: row.currency } });
+      card.append(el('h3', { text: row.currency }));
+      const list = el('dl');
+      list.append(el('dt', { text: '预算' }), el('dd', { text: moneyLine(row.budgetCount, row.budgetSum) }));
+      list.append(el('dt', { text: '已付' }), el('dd', { text: moneyLine(row.paidCount, row.paidSum) }));
+      list.append(el('dt', { text: '金额未知' }), el('dd', { text: row.unknown ? row.unknown + ' 笔，未计入合计' : '0 笔' }));
+      card.append(list);
+      wrap.append(card);
+    }
+    return wrap;
+  }
+
+  function entryBits(entry) {
+    const bits = [];
+    const details = entry.details;
+    if (TIME_CATEGORIES.has(entry.category)) {
+      if (entry.scheduledAt && hasExplicitOffset(entry.scheduledAt)) {
+        bits.push(el('p', { className: 'meta', text: '时间 ' + entry.scheduledAt }));
+        const count = el('p', { className: 'countdown', text: formatCountdown(entry.scheduledAt) });
+        count.dataset.countdownUntil = entry.scheduledAt;
+        bits.push(count);
+      } else if (entry.scheduledAt) {
+        bits.push(el('p', { className: 'meta', text: '时间 ' + entry.scheduledAt }));
+      } else {
+        bits.push(el('p', { className: 'meta', text: '未定具体时间' }));
+      }
+    }
+    if (entry.category === 'idea') {
+      bits.push(el('p', { className: 'meta', text: '来源：' + details.source }));
+      bits.push(el('p', { className: 'meta', text: '怎么用：' + details.howToUse }));
+    } else if (entry.category === 'expense') {
+      const amount = details.amountKnown ? details.amount.toFixed(2) : '金额未知';
+      bits.push(el('p', { className: 'meta', text: (details.kind === 'budget' ? '预算 ' : '已付 ') + details.currency + ' ' + amount }));
+    } else if (entry.category === 'address') {
+      bits.push(el('p', { className: 'meta', text: details.address }));
+      const href = 'https://www.openstreetmap.org/search?query=' + encodeURIComponent(details.address);
+      bits.push(el('p', {}, [el('a', { text: '在地图中打开', attrs: { href, rel: 'noreferrer noopener', target: '_blank' } })]));
+    } else if (entry.category === 'transport') {
+      bits.push(el('p', { className: 'meta', text: details.mode + ' ' + (details.from || '未填出发地') + ' → ' + (details.to || '未填到达地') }));
+      if (details.arrival) bits.push(el('p', { className: 'meta', text: '到达 ' + details.arrival }));
+    } else if (entry.category === 'lodging') {
+      if (details.address) bits.push(el('p', { className: 'meta', text: details.address }));
+      if (details.checkOut) bits.push(el('p', { className: 'meta', text: '退房 ' + details.checkOut }));
+    } else if (entry.category === 'packing') {
+      bits.push(el('p', { className: 'meta', text: details.qty == null ? '数量未填' : '数量 ' + details.qty }));
+    } else if (entry.category === 'problem') {
+      bits.push(el('p', { className: 'meta', text: '程度 ' + details.severity }));
+    } else if (entry.category === 'document') {
+      bits.push(el('p', { className: 'meta', text: '类型：' + details.docType }));
+      bits.push(documentNumberLine(entry));
+      bits.push(el('p', { className: 'meta', text: details.fileName ? '附件 ' + details.fileName + ' · SHA-256 ' + details.fileSha256 : '没有附件' }));
+    } else if (details.place) {
+      bits.push(el('p', { className: 'meta', text: details.place }));
+    }
+    if (entry.notes) bits.push(el('p', { text: entry.notes }));
+    return bits;
+  }
+
+  function entryCard(entry, editable) {
+    const card = el('li', { className: 'card', dataset: { id: entry.id, kind: 'entry' } });
+    const title = el('h3', { text: entry.title });
+    if (entry.category === 'idea') title.append(el('span', { className: 'star', text: ' ★', attrs: { 'aria-hidden': 'true' } }));
+    card.append(title, ...entryBits(entry));
+    if (entry.category === 'document') card.append(el('div', { className: 'actions' }, documentActions(entry)));
+    if (editable) {
+      card.append(el('div', { className: 'actions' }, [
+        el('button', { type: 'button', text: '编辑', on: { click: () => openEditor(entry.category, entry) } }),
+        el('button', { type: 'button', text: entry.completed ? '标为未完成' : '标为完成', on: { click: () => mutateEntry(entry, entry.completed ? { completed: false, completedAt: null } : { completed: true, completedAt: nowIso() }) } }),
+        el('button', { type: 'button', text: '移到回收站', on: { click: async () => {
+          const ok = await askConfirm({ title: '移到回收站', body: '「' + entry.title + '」会离开当前列表，可以在回收站恢复。', okLabel: '确认移入回收站' });
+          if (!ok) return;
+          await mutateEntry(entry, { deleted: true, deletedAt: nowIso() });
+          toast('已移到回收站');
+        } } })
+      ]));
+    }
+    return card;
+  }
+
+  function renderEntryList(entries, editable) {
+    const box = el('div');
+    const open = entries.filter((entry) => !entry.completed);
+    const done = entries.filter((entry) => entry.completed);
+    if (!entries.length) {
+      box.append(el('p', { className: 'empty', text: '这一类还没有记录。' }));
+      return box;
+    }
+    if (open.length) box.append(el('ul', { className: 'card-list' }, open.map((entry) => entryCard(entry, editable))));
+    if (done.length) {
+      const details = el('details', { className: 'completed-fold' });
+      details.append(el('summary', { text: '已完成（' + done.length + '）' }));
+      details.append(el('ul', { className: 'card-list' }, done.map((entry) => entryCard(entry, editable))));
+      box.append(details);
+    }
+    return box;
+  }
+
+  function entriesFor(tripId, category) {
+    return state.entries.filter((entry) => entry.tripId === tripId && entry.category === category && !entry.deleted);
+  }
+
+  function documentNumberLine(entry) {
+    const revealed = state.revealed && state.revealed.id === entry.id && state.revealed.field === 'doc';
+    const row = el('p', { className: 'meta' });
+    if (!entry.details.number) {
+      row.textContent = '号码：未填';
+      return row;
+    }
+    row.append(document.createTextNode('号码：'));
+    row.append(el('span', { text: revealed ? entry.details.number : '已遮盖' }));
+    return row;
+  }
+
+  function documentActions(entry) {
+    const actions = [];
+    if (entry.details.number) {
+      const shown = state.revealed && state.revealed.id === entry.id && state.revealed.field === 'doc';
+      actions.push(el('button', { type: 'button', text: shown ? '隐藏号码' : '显示号码', on: { click: () => {
+        if (shown) state.revealed = null;
+        else state.revealed = { id: entry.id, field: 'doc' };
+        render();
+      } } }));
+      actions.push(el('button', { type: 'button', text: '复制号码', on: { click: async () => {
+        try {
+          need(navigator.clipboard && navigator.clipboard.writeText, '复制失败，号码仍保持遮盖。');
+          await navigator.clipboard.writeText(entry.details.number);
+          toast('已复制号码');
+        } catch (err) {
+          if (err && err.message && err.message.indexOf('复制失败') === 0) throw err;
+          throw new Error('复制失败，号码仍保持遮盖。');
+        }
+      } } }));
+    }
+    if (entry.details.fileSha256) {
+      actions.push(el('button', { type: 'button', text: '打开附件', on: { click: () => openStoredFile(entry, 'open') } }));
+      actions.push(el('button', { type: 'button', text: '下载附件', on: { click: () => openStoredFile(entry, 'download') } }));
+    }
+    return actions;
+  }
+
+  async function openStoredFile(entry, mode) {
+    const file = await getOne('files', entry.id);
+    need(file && file.blob, '找不到附件');
+    const bytes = new Uint8Array(await file.blob.arrayBuffer());
+    const hash = await sha256Hex(bytes);
+    need(hash === entry.details.fileSha256 && bytes.length === entry.details.fileSize, '附件校验和不符，已停止打开');
+    const blob = new Blob([bytes], { type: entry.details.fileMime || 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const filename = safeFileName(entry.details.fileName);
+    if (mode === 'open') {
+      const opened = window.open(url, '_blank');
+      if (!opened) showBanner('浏览器没有打开新窗口，请改用下载。');
+      else try { opened.opener = null; } catch (err) { /* opener may already be blocked */ }
+    } else {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.append(link);
+      link.click();
+      link.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  function secretLine(ticket, field, label) {
+    const revealed = state.revealed && state.revealed.id === ticket.id && state.revealed.field === field;
+    const value = field === 'pnr' ? ticket.pnr : ticket.eTicketNo;
+    const row = el('p', { className: 'meta' });
+    if (value == null) {
+      row.textContent = label + '：无';
+      return row;
+    }
+    row.append(document.createTextNode(label + '：'));
+    row.append(el('span', { text: revealed ? value : '已遮盖' }));
+    return row;
+  }
+
+  function ticketCard(ticket, editable) {
+    const card = el('li', { className: 'card', dataset: { id: ticket.id, kind: 'ticket' } });
+    card.append(el('h3', { text: ticket.flightNo + ' ' + ticket.origin + ' → ' + ticket.destination }));
+    card.append(el('p', { className: 'meta', text: ticket.date + ' 起飞 ' + ticket.departure }));
+    card.append(el('p', { className: 'meta', text: '到达 ' + ticket.arrival }));
+    if (ticket.seat) card.append(el('p', { className: 'meta', text: '座位 ' + ticket.seat }));
+    if (hasExplicitOffset(ticket.departure)) {
+      const count = el('p', { className: 'countdown', text: formatCountdown(ticket.departure) });
+      count.dataset.countdownUntil = ticket.departure;
+      card.append(count);
+    }
+    card.append(secretLine(ticket, 'pnr', '订座代号'));
+    card.append(secretLine(ticket, 'eTicket', '电子票号'));
+    card.append(el('p', { className: 'meta', text: '登机牌 ' + ticket.passName + ' · SHA-256 ' + ticket.passSha256 }));
+    const actions = [];
+    actions.push(el('button', { type: 'button', text: state.revealed && state.revealed.id === ticket.id && state.revealed.field === 'pnr' ? '隐藏订座代号' : '显示订座代号', on: { click: () => {
+      if (state.revealed && state.revealed.id === ticket.id && state.revealed.field === 'pnr') state.revealed = null;
+      else state.revealed = { id: ticket.id, field: 'pnr' };
+      render();
+    } } }));
+    actions.push(el('button', { type: 'button', text: '复制定座代号', on: { click: async () => {
+      try {
+        need(navigator.clipboard && navigator.clipboard.writeText, '复制失败，订座代号仍保持遮盖。');
+        await navigator.clipboard.writeText(ticket.pnr);
+        toast('已复制定座代号');
+      } catch (err) {
+        if (err && err.message && err.message.indexOf('复制失败') === 0) throw err;
+        throw new Error('复制失败，订座代号仍保持遮盖。');
+      }
+    } } }));
+    if (ticket.eTicketNo) {
+      actions.push(el('button', { type: 'button', text: state.revealed && state.revealed.id === ticket.id && state.revealed.field === 'eTicket' ? '隐藏票号' : '显示票号', on: { click: () => {
+        if (state.revealed && state.revealed.id === ticket.id && state.revealed.field === 'eTicket') state.revealed = null;
+        else state.revealed = { id: ticket.id, field: 'eTicket' };
+        render();
+      } } }));
+    }
+    actions.push(el('button', { type: 'button', text: '打开登机牌', on: { click: () => openTicketFile(ticket, 'open') } }));
+    actions.push(el('button', { type: 'button', text: '下载登机牌', on: { click: () => openTicketFile(ticket, 'download') } }));
+    if (editable) {
+      actions.push(el('button', { type: 'button', text: '移到回收站', on: { click: async () => {
+        const ok = await askConfirm({ title: '移到回收站', body: '这张票会离开票务列表，登机牌仍保留，可以恢复。', okLabel: '确认移入回收站' });
+        if (!ok) return;
+        if (state.revealed && state.revealed.id === ticket.id) state.revealed = null;
+        await mutateTicket(ticket, { deleted: true, deletedAt: nowIso() });
+        toast('已移到回收站');
+      } } }));
+    }
+    card.append(el('div', { className: 'actions' }, actions));
+    return card;
+  }
+
+  async function loadTicketBlob(ticket) {
+    const file = await getOne('files', ticket.id);
+    need(file && file.blob, '找不到登机牌文件');
+    const bytes = new Uint8Array(await file.blob.arrayBuffer());
+    const hash = await sha256Hex(bytes);
+    need(hash === ticket.passSha256 && bytes.length === ticket.passSize, '登机牌校验和不符，已停止打开');
+    return new Blob([bytes], { type: 'application/pdf' });
+  }
+
+  async function openTicketFile(ticket, mode) {
+    const blob = await loadTicketBlob(ticket);
+    const url = URL.createObjectURL(blob);
+    const filename = sanitizePart(ticket.flightNo) + '-' + ticket.date + '.pdf';
+    if (mode === 'open') {
+      const opened = window.open(url, '_blank');
+      if (!opened) showBanner('浏览器没有打开新窗口，请改用下载。');
+      else try { opened.opener = null; } catch (err) { /* some browsers already block opener */ }
+    } else {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.append(link);
+      link.click();
+      link.remove();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  function renderToday(trip) {
+    const box = el('div', { className: 'stack' });
+    box.append(el('h2', { id: 'view-heading', text: '今日' }));
+    if (!trip) {
+      box.append(el('section', { className: 'card', id: 'trip-empty' }, [
+        el('h3', { text: '还没有进行中的行程' }),
+        el('p', { text: '新建后，目的地、时间和记录都只留在这台设备的浏览器里。' }),
+        el('div', { className: 'actions' }, [el('button', { type: 'button', className: 'btn-primary', text: '新建行程', on: { click: () => openTripDialog(null) } })])
+      ]));
+      return box;
+    }
+    const summary = el('section', { className: 'card', id: 'trip-summary', dataset: { tripId: trip.id } });
+    summary.append(
+      el('h3', { text: trip.destination }),
+      el('p', { text: '目的：' + trip.purpose }),
+      el('p', { text: '日期：' + trip.start + ' 至 ' + trip.end }),
+      el('div', { className: 'actions' }, [
+        el('button', { type: 'button', text: '新建行程', on: { click: () => openTripDialog(null) } }),
+        el('button', { type: 'button', text: '编辑行程', on: { click: () => openTripDialog(trip) } }),
+        el('button', { type: 'button', className: 'btn-primary', text: '结束行程', on: { click: () => openEndFlow(trip) } })
+      ])
+    );
+    box.append(summary);
+    const pool = state.entries.filter((entry) => entry.tripId === trip.id && !entry.deleted && !entry.completed && TIME_CATEGORIES.has(entry.category));
+    const timed = pool.filter((entry) => entry.scheduledAt && hasExplicitOffset(entry.scheduledAt)).sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
+    const untimed = pool.filter((entry) => !(entry.scheduledAt && hasExplicitOffset(entry.scheduledAt)));
+    const ticketSteps = state.tickets
+      .filter((ticket) => ticket.tripId === trip.id && !ticket.deleted && hasExplicitOffset(ticket.departure))
+      .sort((a, b) => a.departure.localeCompare(b.departure));
+    box.append(el('h3', { text: '已安排时间' }));
+    if (timed.length) box.append(el('ul', { className: 'card-list' }, timed.map((entry) => entryCard(entry, true))));
+    if (ticketSteps.length) box.append(el('ul', { className: 'card-list' }, ticketSteps.map((ticket) => ticketCard(ticket, true))));
+    if (!timed.length && !ticketSteps.length) box.append(el('p', { className: 'empty', text: '没有已写入具体时间的下一步。没有时间就不会显示倒计时。' }));
+    box.append(el('h3', { text: '还没有具体时间' }));
+    if (untimed.length) box.append(el('ul', { className: 'card-list' }, untimed.map((entry) => entryCard(entry, true))));
+    else box.append(el('p', { className: 'empty', text: '没有未定时的行程、交通、住宿或待办。' }));
+    const openProblems = state.entries.filter((entry) => entry.tripId === trip.id && entry.category === 'problem' && !entry.deleted && !entry.completed).length;
+    box.append(el('p', { text: '未解决的问题：' + openProblems + ' 件。' }));
+    return box;
+  }
+
+  function renderCategory(name, trip) {
+    const box = el('div');
+    box.append(el('h2', { id: 'view-heading', text: VIEW_HEADING[name] }));
+    if (!trip) {
+      box.append(el('p', { className: 'empty', text: '请先新建行程。' }));
+      return box;
+    }
+    if (name === 'expense') box.append(expenseNodes(state.entries.filter((entry) => entry.tripId === trip.id)));
+    if (name === 'document') {
+      box.append(el('p', { className: 'callout', text: '资料和附件只在这台浏览器的 IndexedDB 里，没有加密。号码可以不填；填写后默认遮盖。' }));
+    }
+    const actions = el('div', { className: 'actions' });
+    actions.append(el('button', { type: 'button', className: 'btn-primary', text: '新增' + CATEGORY_LABEL[name], on: { click: () => openEditor(name, null) } }));
+    box.append(actions);
+    box.append(renderEntryList(entriesFor(trip.id, name), true));
+    return box;
+  }
+
+  function renderTickets(trip) {
+    const box = el('div', { className: 'stack' });
+    box.append(el('h2', { id: 'view-heading', text: '票务' }));
+    box.append(el('p', { className: 'callout', text: '登机牌和订座代号保存在这台浏览器的 IndexedDB 里，数据库没有加密。页面默认遮盖订座代号。' }));
+    box.append(el('div', { className: 'actions' }, [
+      el('button', { type: 'button', className: 'btn-primary', text: '导入票务文件', on: { click: () => document.getElementById('ticket-file').click() } })
+    ]));
+    if (!trip) {
+      box.append(el('p', { className: 'empty', text: '还没有进行中的行程。如果票务文件自带行程编号，导入时可以建立对应行程。' }));
+      return box;
+    }
+    const tickets = state.tickets.filter((ticket) => ticket.tripId === trip.id && !ticket.deleted);
+    if (!tickets.length) box.append(el('p', { className: 'empty', text: '当前行程还没有票。' }));
+    else box.append(el('ul', { className: 'card-list' }, tickets.map((ticket) => ticketCard(ticket, true))));
+    return box;
+  }
+
+  function renderRecycle(trip) {
+    const box = el('div', { className: 'stack' });
+    box.append(el('h2', { id: 'view-heading', text: '回收站' }));
+    box.append(el('p', { text: '这里的内容可以恢复。没有“全部清除”。' }));
+    if (!trip) {
+      box.append(el('p', { className: 'empty', text: '没有进行中的行程。归档行程里的回收内容请到归档查看。' }));
+      return box;
+    }
+    const entries = state.entries.filter((entry) => entry.tripId === trip.id && entry.deleted);
+    const tickets = state.tickets.filter((ticket) => ticket.tripId === trip.id && ticket.deleted);
+    if (!entries.length && !tickets.length) box.append(el('p', { className: 'empty', text: '回收站是空的。' }));
+    const cards = entries.map((entry) => {
+      const card = entryCard(entry, false);
+      card.append(el('div', { className: 'actions' }, [el('button', { type: 'button', text: '恢复', on: { click: async () => {
+        await mutateEntry(entry, { deleted: false, deletedAt: null });
+        toast('已恢复');
+      } } })]));
+      return card;
+    }).concat(tickets.map((ticket) => {
+      const card = ticketCard(ticket, false);
+      card.append(el('div', { className: 'actions' }, [el('button', { type: 'button', text: '恢复', on: { click: async () => {
+        await mutateTicket(ticket, { deleted: false, deletedAt: null });
+        toast('已恢复');
+      } } })]));
+      return card;
+    }));
+    if (cards.length) box.append(el('ul', { className: 'card-list' }, cards));
+    return box;
+  }
+
+  function renderArchive() {
+    const box = el('div', { className: 'stack' });
+    box.append(el('h2', { id: 'view-heading', text: '归档' }));
+    const archived = state.trips.filter((trip) => trip.status === 'archived').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    if (!archived.length) box.append(el('p', { className: 'empty', text: '还没有归档行程。结束当前行程并完成两步确认后，会出现在这里。' }));
+    for (const trip of archived) {
+      const card = el('section', { className: 'card', dataset: { tripId: trip.id, archived: '1' } });
+      card.append(el('h3', { text: trip.destination + ' · ' + trip.purpose }));
+      card.append(el('p', { text: trip.start + ' 至 ' + trip.end }));
+      card.append(el('div', { className: 'actions' }, [
+        el('button', { type: 'button', text: state.inspectTripId === trip.id ? '收起' : '查看', on: { click: () => {
+          state.inspectTripId = state.inspectTripId === trip.id ? null : trip.id;
+          render();
+        } } }),
+        el('button', { type: 'button', text: '下载此归档 Markdown', on: { click: () => downloadHandoff(trip, 'md') } }),
+        el('button', { type: 'button', text: '下载此归档 JSON', on: { click: () => downloadHandoff(trip, 'json') } })
+      ]));
+      if (state.inspectTripId === trip.id) {
+        card.append(el('p', { text: '正在查看归档，不能在这里修改。' }));
+        const live = state.entries.filter((entry) => entry.tripId === trip.id && !entry.deleted);
+        card.append(renderEntryList(live, false));
+        const recycled = state.entries.filter((entry) => entry.tripId === trip.id && entry.deleted);
+        if (recycled.length) {
+          card.append(el('h3', { text: '归档中的回收内容' }));
+          card.append(el('ul', { className: 'card-list' }, recycled.map((entry) => entryCard(entry, false))));
+        }
+        const tickets = state.tickets.filter((ticket) => ticket.tripId === trip.id);
+        if (tickets.length) {
+          card.append(el('h3', { text: '归档票务' }));
+          card.append(el('ul', { className: 'card-list' }, tickets.map((ticket) => ticketCard(ticket, false))));
+        }
+      }
+      box.append(card);
+    }
+    return box;
+  }
+
+  function renderAbout(trip) {
+    const box = el('div', { className: 'stack' });
+    box.append(el('h2', { id: 'view-heading', text: '关于' }));
+    if (state.problem) box.append(el('p', { className: 'callout', text: state.problem }));
+    const backup = el('section', { className: 'card' });
+    backup.append(el('h3', { text: '备份与恢复' }));
+    backup.append(el('p', { text: '完整 JSON 含全部文字、订座代号和登机牌。请不要发到聊天工具。合并导入会按稳定编号更新，文件里没有的记录会保留。' }));
+    backup.append(el('div', { className: 'actions' }, [
+      el('button', { type: 'button', className: 'btn-primary', text: '下载完整备份 JSON', on: { click: downloadFullBackup } }),
+      el('button', { type: 'button', text: '复制完整 JSON', on: { click: copyFullBackup } }),
+      el('button', { type: 'button', text: '从文件合并导入', on: { click: () => document.getElementById('backup-file').click() } })
+    ]));
+    if (lastBackupText) {
+      backup.append(el('button', { type: 'button', text: '重试上次的备份文件', on: { click: () => importBackupText(lastBackupText, false) } }));
+    }
+    const area = el('textarea', { id: 'import-text', placeholder: '把完整 JSON 粘贴在这里' });
+    backup.append(el('div', { className: 'field' }, [el('label', { htmlFor: 'import-text', text: '粘贴备份' }), area]));
+    backup.append(el('div', { className: 'actions' }, [el('button', { type: 'button', text: '校验并合并导入', on: { click: () => importBackupText(document.getElementById('import-text').value, true) } })]));
+    backup.append(el('p', { id: 'import-error', className: 'form-error', hidden: true }));
+    box.append(backup);
+    const handoff = el('section', { className: 'card' });
+    handoff.append(el('h3', { text: '当前行程交接' }));
+    if (!trip) handoff.append(el('p', { text: '没有进行中的行程。' }));
+    else {
+      handoff.append(el('p', { text: 'Markdown 会遮盖订座代号。JSON 含登机牌，属于敏感文件。' }));
+      handoff.append(el('div', { className: 'actions' }, [
+        el('button', { type: 'button', text: '下载交接 Markdown', on: { click: () => downloadHandoff(trip, 'md') } }),
+        el('button', { type: 'button', text: '下载交接 JSON', on: { click: () => downloadHandoff(trip, 'json') } }),
+        el('button', { type: 'button', className: 'btn-primary', text: '结束行程', on: { click: () => openEndFlow(trip) } })
+      ]));
+    }
+    box.append(handoff);
+    const version = el('section', { className: 'card' });
+    version.append(el('h3', { text: '版本与更新说明' }));
+    version.append(el('p', { text: '版本 ' + APP_VERSION }));
+    const list = el('ul');
+    for (const item of CHANGELOG) list.append(el('li', { text: item }));
+    version.append(list);
+    box.append(version);
+    const snaps = el('section', { className: 'card', id: 'snapshot-section' });
+    snaps.append(el('h3', { text: '导入前快照' }));
+    snaps.append(el('p', { id: 'snapshot-list', text: '正在读取快照…' }));
+    box.append(snaps);
+    loadSnapshotList();
+    return box;
+  }
+
+  async function loadSnapshotList() {
+    try {
+      const snaps = await getAll('snapshots');
+      if (state.view !== 'about') return;
+      const slot = document.getElementById('snapshot-list');
+      if (!slot) return;
+      const parent = slot.parentElement;
+      slot.remove();
+      const usable = snaps
+        .filter((snap) => snap && snap.id && snap.createdAt && snap.reason)
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        .slice(0, 8);
+      if (!usable.length) {
+        parent.append(el('p', { id: 'snapshot-list', text: '还没有导入前快照。' }));
+        return;
+      }
+      const list = el('ul', { className: 'card-list', id: 'snapshot-list' });
+      for (const snap of usable) {
+        list.append(el('li', { className: 'card' }, [
+          el('p', { text: snap.createdAt + ' · ' + snap.reason }),
+          el('button', { type: 'button', text: '合并恢复此快照', on: { click: () => restoreSnapshot(snap.id) } })
+        ]));
+      }
+      parent.append(list);
+    } catch (err) {
+      const slot = document.getElementById('snapshot-list');
+      if (slot) slot.textContent = '快照列表读取失败，记录本身没有被改动。';
+    }
+  }
+
+  async function restoreSnapshot(id) {
+    const ok = await askConfirm({
+      title: '合并恢复快照',
+      body: '会按快照里的编号写回记录，不会删除快照里没有的现有记录。',
+      okLabel: '合并恢复'
+    });
+    if (!ok) return;
+    const snap = await getOne('snapshots', id);
+    need(snap && typeof snap.json === 'string', '找不到快照');
+    await importBackupText(snap.json, false);
+  }
+
+  function renderNav() {
+    const nav = document.getElementById('nav');
+    nav.replaceChildren();
+    for (const [id, label] of VIEWS) {
+      const button = el('button', {
+        type: 'button',
+        text: label,
+        attrs: state.view === id ? { 'aria-current': 'page' } : {},
+        on: { click: () => setView(id) }
+      });
+      nav.append(button);
+    }
+  }
+
+  function renderQuick() {
+    const quick = document.getElementById('quick');
+    quick.replaceChildren();
+    const items = [['idea', '记点子'], ['packing', '加打包'], ['problem', '记问题'], ['task', '加待办']];
+    for (const [category, label] of items) {
+      quick.append(el('button', { type: 'button', text: label, on: { click: () => {
+        if (!activeTrip()) {
+          showGuard('请先新建行程，然后再记这条内容。');
+          return;
+        }
+        setView(category);
+        openEditor(category, null);
+      } } }));
+    }
+  }
+
+  function render() {
+    const trip = activeTrip();
+    const headerTrip = document.getElementById('header-trip');
+    headerTrip.textContent = trip ? trip.destination + ' · ' + trip.purpose : '没有进行中的行程';
+    const origin = document.getElementById('origin-note');
+    if (origin) {
+      origin.textContent = location.protocol === 'file:'
+        ? '当前是本地文件（file://）。这份 IndexedDB 只跟这个文件路径绑在一起，不会出现在网址打开的页面里。剪贴板经常被拒绝。'
+        : '当前是网页地址。它和直接打开的 HTML 文件不共用 IndexedDB。';
+    }
+    renderNav();
+    renderQuick();
+    if (state.problem) showBanner(state.problem);
+    const view = document.getElementById('view');
+    let node;
+    if (state.view === 'today') node = renderToday(trip);
+    else if (state.view === 'ticket') node = renderTickets(trip);
+    else if (state.view === 'recycle') node = renderRecycle(trip);
+    else if (state.view === 'archive') node = renderArchive();
+    else if (state.view === 'about') node = renderAbout(trip);
+    else node = renderCategory(state.view, trip);
+    view.replaceChildren(node);
+    tickCountdowns();
+  }
+
+  function setView(id) {
+    state.view = id;
+    state.revealed = null;
+    render();
+  }
+
+  function sanitizePart(value) {
+    const cleaned = String(value || '').normalize('NFKC').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+    return cleaned || 'trip';
+  }
+
+  function handoffBasename(trip) {
+    const month = isIsoDate(trip.start) ? trip.start.slice(0, 7) : '0000-00';
+    return month + '-' + sanitizePart(trip.destination) + '-' + sanitizePart(trip.purpose) + '-handoff';
+  }
+
+  function downloadText(filename, text, mime) {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  function mdLines(value) {
+    return String(value == null ? '' : value).replace(/\r\n/g, '\n').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').split('\n').join('\n  ');
+  }
+
+  function markdownFor(trip, entries, tickets) {
+    const lines = [];
+    lines.push('# 行程交接：' + mdLines(trip.destination) + ' · ' + mdLines(trip.purpose));
+    lines.push('');
+    lines.push('> 警告：Markdown 已遮盖订座代号、电子票号和资料号码。同名 JSON 含这些号码、登机牌和附件，属于敏感资料，请只在可信设备上保存。IndexedDB 与导出文件都没有加密。');
+    lines.push('');
+    lines.push('- 目的：' + mdLines(trip.purpose));
+    lines.push('- 目的地：' + mdLines(trip.destination));
+    lines.push('- 日期：' + trip.start + ' 至 ' + trip.end);
+    lines.push('- 状态：' + (trip.status === 'archived' ? '已归档' : '进行中'));
+    lines.push('');
+    const groups = [
+      ['行程', 'itinerary'], ['交通', 'transport'], ['住宿', 'lodging'], ['待办', 'task'],
+      ['打包', 'packing'], ['问题', 'problem'], ['点子', 'idea'], ['地址', 'address'], ['资料', 'document']
+    ];
+    for (const [label, category] of groups) {
+      lines.push('## ' + label);
+      const rows = entries.filter((entry) => entry.category === category && !entry.deleted);
+      if (!rows.length) lines.push('无');
+      for (const entry of rows) {
+        const mark = entry.completed ? 'x' : ' ';
+        lines.push('- [' + mark + '] ' + mdLines(entry.title));
+        if (entry.scheduledAt) lines.push('  - 时间：' + entry.scheduledAt);
+        else if (TIME_CATEGORIES.has(category)) lines.push('  - 时间：未定');
+        if (entry.notes) lines.push('  - 备注：' + mdLines(entry.notes));
+        if (category === 'idea') {
+          lines.push('  - 来源：' + mdLines(entry.details.source));
+          lines.push('  - 怎么用：' + mdLines(entry.details.howToUse));
+        }
+        if (category === 'document') {
+          lines.push('  - 类型：' + mdLines(entry.details.docType));
+          lines.push('  - 号码：' + (entry.details.number ? '已遮盖' : '未填'));
+          lines.push(entry.details.fileSha256
+            ? '  - 附件：' + mdLines(entry.details.fileName) + ' sha256=' + entry.details.fileSha256 + ' size=' + entry.details.fileSize
+            : '  - 附件：无');
+        }
+      }
+      lines.push('');
+    }
+    lines.push('## 花费');
+    const rows = summarizeExpenses(entries.filter((entry) => !entry.deleted));
+    if (!rows.length) lines.push('无。未知金额不会按 0 计算。');
+    for (const row of rows) {
+      lines.push('### ' + row.currency);
+      lines.push('- 预算：' + moneyLine(row.budgetCount, row.budgetSum));
+      lines.push('- 已付：' + moneyLine(row.paidCount, row.paidSum));
+      lines.push('- 金额未知：' + row.unknown + ' 笔（不按 0 计算）');
+    }
+    lines.push('');
+    lines.push('## 票务');
+    if (!tickets.length) lines.push('无');
+    for (const ticket of tickets) {
+      lines.push('- ' + mdLines(ticket.flightNo) + ' ' + mdLines(ticket.origin) + ' → ' + mdLines(ticket.destination) + ' ' + ticket.date);
+      lines.push('  - 起飞：' + ticket.departure);
+      lines.push('  - 到达：' + ticket.arrival);
+      lines.push('  - 订座代号：已遮盖');
+      lines.push('  - 电子票号：' + (ticket.eTicketNo ? '已遮盖' : '无'));
+      lines.push('  - 登机牌：' + mdLines(ticket.passName) + ' sha256=' + ticket.passSha256 + ' size=' + ticket.passSize);
+      if (ticket.deleted) lines.push('  - 状态：在回收站');
+    }
+    lines.push('');
+    lines.push('## 回收站');
+    const recycled = entries.filter((entry) => entry.deleted);
+    const recycledTickets = tickets.filter((ticket) => ticket.deleted);
+    if (!recycled.length && !recycledTickets.length) lines.push('无');
+    for (const entry of recycled) lines.push('- ' + mdLines(CATEGORY_LABEL[entry.category] || entry.category) + '：' + mdLines(entry.title));
+    for (const ticket of recycledTickets) lines.push('- 票务：' + mdLines(ticket.flightNo) + '（订座代号已遮盖）');
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  async function filesFor(tickets) {
+    const out = [];
+    for (const ticket of tickets) {
+      const file = await getOne('files', ticket.id);
+      need(file && file.blob, '缺少登机牌文件，已停止导出');
+      const bytes = new Uint8Array(await file.blob.arrayBuffer());
+      const hash = await sha256Hex(bytes);
+      need(hash === ticket.passSha256 && bytes.length === ticket.passSize, '登机牌校验和不符，已停止导出');
+      out.push({ ticket, base64: bytesToBase64(bytes) });
+    }
+    return out;
+  }
+
+  function transferTicket(ticket, base64) {
+    return {
+      id: ticket.id,
+      tripId: ticket.tripId,
+      originalTripId: ticket.originalTripId,
+      flightNo: ticket.flightNo,
+      date: ticket.date,
+      origin: ticket.origin,
+      destination: ticket.destination,
+      departure: ticket.departure,
+      arrival: ticket.arrival,
+      seat: ticket.seat,
+      pnr: ticket.pnr,
+      eTicketNo: ticket.eTicketNo,
+      boardingPass: {
+        name: ticket.passName,
+        mime: 'application/pdf',
+        encoding: 'base64',
+        size: ticket.passSize,
+        sha256: ticket.passSha256,
+        base64
+      },
+      deleted: ticket.deleted,
+      deletedAt: ticket.deletedAt,
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt
+    };
+  }
+
+  async function attachmentsFor(entries) {
+    const out = [];
+    for (const entry of entries) {
+      if (entry.category !== 'document' || !entry.details.fileSha256) continue;
+      const file = await getOne('files', entry.id);
+      need(file && file.blob, '缺少资料附件，已停止导出');
+      const bytes = new Uint8Array(await file.blob.arrayBuffer());
+      const hash = await sha256Hex(bytes);
+      need(hash === entry.details.fileSha256 && bytes.length === entry.details.fileSize, '资料附件校验和不符，已停止导出');
+      out.push({
+        id: entry.id,
+        name: entry.details.fileName,
+        mime: entry.details.fileMime,
+        encoding: 'base64',
+        size: entry.details.fileSize,
+        sha256: hash,
+        base64: bytesToBase64(bytes)
+      });
+    }
+    return out;
+  }
+
+  async function buildBackupJson() {
+    const packed = await filesFor(state.tickets);
+    const attachments = await attachmentsFor(state.entries);
+    return {
+      format: 'trip-hub-backup',
+      schemaVersion: 1,
+      exportedAt: nowIso(),
+      app: { name: '行程册', version: APP_VERSION },
+      privacy: '本地备份，含敏感订座代号、资料号码、登机牌和附件。IndexedDB 与此文件均不加密。',
+      trips: state.trips.map(normalizeTrip),
+      entries: state.entries.map(normalizeEntry),
+      tickets: packed.map((item) => transferTicket(item.ticket, item.base64)),
+      attachments
+    };
+  }
+
+  async function buildHandoffJson(trip) {
+    const entries = state.entries.filter((entry) => entry.tripId === trip.id).map(normalizeEntry);
+    const tickets = state.tickets.filter((ticket) => ticket.tripId === trip.id);
+    const packed = await filesFor(tickets);
+    const attachments = await attachmentsFor(entries);
+    return {
+      format: 'trip-hub-handoff',
+      schemaVersion: 1,
+      exportedAt: nowIso(),
+      app: { name: '行程册', version: APP_VERSION },
+      privacy: '行程交接，含敏感订座代号、资料号码、登机牌和附件。此文件不加密。',
+      trips: normalizeTrip(trip),
+      entries,
+      tickets: packed.map((item) => transferTicket(item.ticket, item.base64)),
+      attachments
+    };
+  }
+
+  async function downloadFullBackup() {
+    const payload = await buildBackupJson();
+    await validateBackup(payload);
+    downloadText('trip-hub-backup.json', JSON.stringify(payload, null, 2), 'application/json');
+    toast('已开始下载完整备份');
+  }
+
+  async function copyFullBackup() {
+    const payload = await buildBackupJson();
+    await validateBackup(payload);
+    const text = JSON.stringify(payload);
+    need(navigator.clipboard && navigator.clipboard.writeText, '复制失败，请改用下载。JSON 没有显示在页面上。');
+    await navigator.clipboard.writeText(text);
+    toast('已复制完整 JSON');
+  }
+
+  async function downloadHandoff(trip, kind) {
+    const base = handoffBasename(trip);
+    if (kind === 'md') {
+      const entries = state.entries.filter((entry) => entry.tripId === trip.id);
+      const tickets = state.tickets.filter((ticket) => ticket.tripId === trip.id);
+      downloadText(base + '.md', markdownFor(trip, entries, tickets), 'text/markdown;charset=utf-8');
+      return base + '.md';
+    }
+    const payload = await buildHandoffJson(trip);
+    await validateBackup(payload);
+    downloadText(base + '.json', JSON.stringify(payload, null, 2), 'application/json');
+    return base + '.json';
+  }
+
+  async function importBackupText(text, fromTextarea) {
+    try {
+      setAlert('import-error', '');
+      const data = parseJsonLimited(text, MAX_BACKUP_CHARS);
+      const norm = await validateBackup(data);
+      lastBackupText = '';
+      await mergeNormalized(norm, 'before-import');
+      const area = document.getElementById('import-text');
+      if (fromTextarea && area) area.value = '';
+      toast('已合并导入，未包含在文件里的原记录仍保留。');
+      if (!state.problem) showBanner('');
+    } catch (err) {
+      lastBackupText = fromTextarea ? '' : text;
+      const message = errorText(err);
+      showBanner(message);
+      setView('about');
+      setAlert('import-error', message);
+      const area = document.getElementById('import-text');
+      if (fromTextarea && area) area.value = text;
+    }
+  }
+
+  function resetEndFlow(trip) {
+    endFlow = { tripId: trip.id, mdReady: false, jsonReady: false };
+    document.getElementById('end-names').textContent = '预期文件名：' + handoffBasename(trip) + '.md 与 .json';
+    document.getElementById('end-confirm-md').checked = false;
+    document.getElementById('end-confirm-json').checked = false;
+    document.getElementById('end-confirm-md').disabled = true;
+    document.getElementById('end-confirm-json').disabled = true;
+    document.getElementById('end-continue').disabled = true;
+    setAlert('end-error', '');
+    setAlert('archive-error', '');
+  }
+
+  function syncEndContinue() {
+    if (!endFlow) return;
+    const ready = endFlow.mdReady && endFlow.jsonReady && document.getElementById('end-confirm-md').checked && document.getElementById('end-confirm-json').checked;
+    document.getElementById('end-continue').disabled = !ready;
+  }
+
+  function openEndFlow(trip) {
+    try { guardWritable(); } catch (err) { showFailure(err); return; }
+    resetEndFlow(trip);
+    const dialog = document.getElementById('end-dialog');
+    if (!dialog.open) dialog.showModal();
+    document.getElementById('end-cancel').focus();
+  }
+
+  async function onEndDownload(kind) {
+    try {
+      const trip = tripById(endFlow && endFlow.tripId);
+      need(trip && trip.status === 'active', '当前没有可结束的行程');
+      await downloadHandoff(trip, kind);
+      if (kind === 'md') {
+        endFlow.mdReady = true;
+        document.getElementById('end-confirm-md').disabled = false;
+      } else {
+        endFlow.jsonReady = true;
+        document.getElementById('end-confirm-json').disabled = false;
+      }
+      setAlert('end-error', '');
+      syncEndContinue();
+    } catch (err) {
+      setAlert('end-error', errorText(err));
+    }
+  }
+
+  function fillArchiveSummary(trip) {
+    const box = document.getElementById('archive-summary');
+    box.replaceChildren();
+    const entries = state.entries.filter((entry) => entry.tripId === trip.id);
+    const tickets = state.tickets.filter((ticket) => ticket.tripId === trip.id);
+    box.append(el('p', { text: '目的地：' + trip.destination }));
+    box.append(el('p', { text: '目的：' + trip.purpose }));
+    box.append(el('p', { text: '日期：' + trip.start + ' 至 ' + trip.end }));
+    box.append(el('p', { text: '记录 ' + entries.length + ' 条（未删除 ' + entries.filter((entry) => !entry.deleted).length + '，已完成 ' + entries.filter((entry) => entry.completed && !entry.deleted).length + '），回收 ' + (entries.filter((entry) => entry.deleted).length + tickets.filter((ticket) => ticket.deleted).length) + ' 条，票务 ' + tickets.length + ' 张。' }));
+    box.append(el('h3', { text: '花费摘要（不含回收站，未知金额不是 0）' }));
+    box.append(expenseNodes(entries.filter((entry) => entry.tripId === trip.id)));
+  }
+
+  async function continueArchive() {
+    try {
+      syncEndContinue();
+      need(endFlow && endFlow.mdReady && endFlow.jsonReady, '请先导出两个文件');
+      need(document.getElementById('end-confirm-md').checked && document.getElementById('end-confirm-json').checked, '请确认两个文件都已保存并能打开');
+      await loadState();
+      const trip = activeTrip();
+      need(trip && trip.id === endFlow.tripId && trip.status === 'active', '行程状态已经变化，没有归档。');
+      fillArchiveSummary(trip);
+      document.getElementById('end-dialog').close();
+      const dialog = document.getElementById('archive-dialog');
+      if (!dialog.open) dialog.showModal();
+      document.getElementById('archive-back').focus();
+    } catch (err) {
+      setAlert('end-error', errorText(err));
+    }
+  }
+
+  async function archiveTrip() {
+    if (archiveBusy) return;
+    archiveBusy = true;
+    const button = document.getElementById('archive-go');
+    button.disabled = true;
+    try {
+      need(endFlow && endFlow.mdReady && endFlow.jsonReady, '还没有完成导出确认');
+      need(document.getElementById('end-confirm-md').checked && document.getElementById('end-confirm-json').checked, '还没有确认两个文件都能打开');
+      const id = endFlow.tripId;
+      const current = await getOne('trips', id);
+      need(current && isValidTrip(current), '找不到行程，没有归档。');
+      if (current.status !== 'archived') {
+        const next = normalizeTrip(Object.assign({}, current, { status: 'archived', archivedAt: nowIso(), updatedAt: nowIso() }));
+        await commit(['trips', 'meta'], [
+          { store: 'trips', type: 'put', value: next },
+          { store: 'meta', type: 'put', value: { key: 'activeTripId', value: null } }
+        ]);
+      }
+      const got = await getOne('trips', id);
+      const meta = await getOne('meta', 'activeTripId');
+      const all = await getAll('trips');
+      const actives = all.filter((trip) => trip && trip.status === 'active');
+      need(got && got.status === 'archived', '回读校验失败，没有确认归档');
+      need(meta && meta.value == null, '回读校验失败，没有确认归档');
+      need(actives.length === 0, '回读校验失败，没有确认归档');
+      document.getElementById('archive-dialog').close();
+      endFlow = null;
+      await reloadState();
+      toast('行程已归档，可以新建下一程。');
+      showBanner('');
+    } catch (err) {
+      setAlert('archive-error', errorText(err));
+      showBanner(errorText(err));
+      try { await reloadState(); } catch (loadErr) { /* keep the dialog error visible */ }
+    } finally {
+      archiveBusy = false;
+      button.disabled = false;
+    }
+  }
+
+  function closePendingTickets() {
+    pendingTickets = null;
+  }
+
+  async function readTicketFile(file) {
+    need(file.size <= MAX_TICKET_CHARS, '票务文件超过允许大小');
+    const text = await file.text();
+    const parsed = await validateTicketImport(parseJsonLimited(text, MAX_TICKET_CHARS));
+    if (state.readonly) throw new Error(state.problem || '当前已停止写入，没有导入这些票。');
+    pendingTickets = parsed;
+    const active = activeTrip();
+    const existing = state.trips.find((trip) => trip.id === parsed.trip.id) || state.rawTrips.find((trip) => trip && trip.id === parsed.trip.id);
+    if (!active && existing && existing.status === 'archived') openEstablish(parsed, existing);
+    else if (!active) openEstablish(parsed, null);
+    else if (active.id === parsed.trip.id) openMatch(parsed);
+    else openForeign(parsed, active);
+  }
+
+  function showModalFresh(id) {
+    const dialog = document.getElementById(id);
+    dialog.returnValue = '';
+    if (!dialog.open) dialog.showModal();
+  }
+
+  function openMatch(parsed) {
+    document.getElementById('match-body').textContent = '这些票的行程编号与当前行程一致，共 ' + parsed.tickets.length + ' 张。导入后按票编号合并，不会新增重复票。';
+    showModalFresh('match-dialog');
+  }
+
+  function openForeign(parsed, active) {
+    document.getElementById('foreign-body').textContent = '文件中的行程编号与当前行程「' + active.destination + '」不同。共 ' + parsed.tickets.length + ' 张票。';
+    showModalFresh('foreign-dialog');
+  }
+
+  function openEstablish(parsed, existing) {
+    document.getElementById('establish-body').textContent = existing
+      ? '这份文件对应的行程已经归档。可以保持归档并导入，或在没有其他进行中的行程时恢复它。'
+      : '当前没有进行中的行程。确认下面的信息后，会用文件中的行程编号建立行程并导入票。';
+    document.getElementById('establish-id').textContent = '行程编号：' + parsed.trip.id;
+    document.getElementById('tt-purpose').value = parsed.trip.purpose || '';
+    document.getElementById('tt-destination').value = parsed.trip.destination || '';
+    document.getElementById('tt-start').value = parsed.trip.start || '';
+    document.getElementById('tt-end').value = parsed.trip.end || '';
+    const archived = !!(existing && existing.status === 'archived');
+    for (const id of ['tt-purpose', 'tt-destination', 'tt-start', 'tt-end']) document.getElementById(id).disabled = archived;
+    document.getElementById('establish-save').hidden = archived;
+    document.getElementById('establish-keep').hidden = !archived;
+    document.getElementById('establish-reactivate').hidden = !archived;
+    setAlert('establish-error', '');
+    const dialog = document.getElementById('establish-dialog');
+    dialog.dataset.existing = archived ? existing.id : '';
+    if (!dialog.open) dialog.showModal();
+  }
+
+  function ticketsToNorm(parsed, targetTripId) {
+    const stamp = nowIso();
+    return {
+      trips: [],
+      entries: [],
+      tickets: parsed.tickets.map((item) => normalizeStoredTicket(Object.assign({}, item.record, {
+        tripId: targetTripId,
+        originalTripId: item.record.originalTripId || parsed.trip.id,
+        updatedAt: stamp
+      }))),
+      files: parsed.tickets.map((item) => ({
+        id: item.record.id,
+        blob: new Blob([item.bytes], { type: 'application/pdf' }),
+        sha256: item.file.sha256,
+        size: item.file.size,
+        mime: 'application/pdf',
+        name: item.file.name
+      }))
+    };
+  }
+
+  function closeIfOpen(id) {
+    const dialog = document.getElementById(id);
+    if (dialog && dialog.open) dialog.close();
+  }
+
+  async function commitTicketImport(norm) {
+    await mergeNormalized(norm, 'before-ticket-import', { preserveCreatedAt: true });
+    pendingTickets = null;
+    closeIfOpen('establish-dialog');
+    closeIfOpen('match-dialog');
+    closeIfOpen('foreign-dialog');
+    state.view = 'ticket';
+    render();
+    toast('票已导入');
+    showBanner('');
+  }
+
+  async function importMatching() {
+    const parsed = pendingTickets;
+    const active = activeTrip();
+    need(parsed && active && active.id === parsed.trip.id, '当前行程与票务文件不一致，没有导入。');
+    await commitTicketImport(ticketsToNorm(parsed, active.id));
+  }
+
+  async function importForeign() {
+    const parsed = pendingTickets;
+    const active = activeTrip();
+    need(parsed && active && active.id !== parsed.trip.id, '没有需要归入的其他行程票。');
+    await commitTicketImport(ticketsToNorm(parsed, active.id));
+  }
+
+  async function importEstablish(mode) {
+    const parsed = pendingTickets;
+    need(parsed, '没有待导入的票务文件');
+    need(!activeTrip() || mode === 'keep', '已经有进行中的行程，没有建立新行程。');
+    const existing = state.trips.find((trip) => trip.id === parsed.trip.id);
+    let trip;
+    const stamp = nowIso();
+    if (mode === 'keep') {
+      need(existing && existing.status === 'archived', '找不到对应的归档行程');
+      trip = existing;
+    } else if (mode === 'reactivate') {
+      need(existing && existing.status === 'archived', '找不到对应的归档行程');
+      need(!activeTrip(), '已经有进行中的行程，没有恢复这一程。');
+      trip = normalizeTrip(Object.assign({}, existing, { status: 'active', archivedAt: null, updatedAt: stamp }));
+    } else {
+      need(!existing, '这个行程编号已经存在');
+      trip = normalizeTrip({
+        id: parsed.trip.id,
+        purpose: document.getElementById('tt-purpose').value.trim(),
+        destination: document.getElementById('tt-destination').value.trim(),
+        start: document.getElementById('tt-start').value,
+        end: document.getElementById('tt-end').value,
+        status: 'active',
+        createdAt: stamp,
+        updatedAt: stamp,
+        archivedAt: null
+      });
+    }
+    const norm = ticketsToNorm(parsed, trip.id);
+    norm.trips = [trip];
+    await commitTicketImport(norm);
+  }
+
+  function paintBadge(level, text) {
+    const badge = document.getElementById('storage-badge');
+    badge.dataset.level = level;
+    badge.textContent = text;
+  }
+
+  async function updateStorageUi() {
+    try {
+      if (!navigator.storage || typeof navigator.storage.estimate !== 'function') {
+        paintBadge('unknown', '存储未知');
+        return;
+      }
+      const estimate = await navigator.storage.estimate();
+      const quota = estimate && estimate.quota;
+      const usage = estimate && estimate.usage;
+      if (typeof quota !== 'number' || typeof usage !== 'number' || !(quota > 0) || !Number.isFinite(usage)) {
+        paintBadge('unknown', '存储未知');
+        return;
+      }
+      const ratio = usage / quota;
+      const pct = (Math.floor(ratio * 1000) / 10).toFixed(1);
+      if (ratio >= 0.85) paintBadge('danger', '存储 ' + pct + '% 将满');
+      else if (ratio >= 0.70) paintBadge('warn', '存储 ' + pct + '% 偏高');
+      else paintBadge('ok', '存储 ' + pct + '%');
+    } catch (err) {
+      paintBadge('unknown', '存储未知');
+    }
+  }
+
+  async function refreshPersistStatus() {
+    const node = document.getElementById('persist-status');
+    try {
+      if (!navigator.storage || typeof navigator.storage.persisted !== 'function') {
+        node.textContent = '持久存储：接口不可用';
+        return;
+      }
+      const granted = await navigator.storage.persisted();
+      node.textContent = granted === true ? '持久存储：已授予' : '持久存储：未授予';
+    } catch (err) {
+      node.textContent = '持久存储：未知';
+    }
+  }
+
+  async function requestPersist() {
+    const node = document.getElementById('persist-status');
+    try {
+      if (!navigator.storage || typeof navigator.storage.persist !== 'function') {
+        node.textContent = '持久存储：接口不可用';
+        return;
+      }
+      const granted = await navigator.storage.persist();
+      node.textContent = granted === true ? '持久存储：已授予' : '持久存储：未授予';
+    } catch (err) {
+      node.textContent = '持久存储：请求失败，未授予';
+    }
+  }
+
+  function showBootError() {
+    document.getElementById('boot-status').hidden = true;
+    document.getElementById('app').hidden = true;
+    const box = document.getElementById('boot-error');
+    box.hidden = false;
+    const extra = location.protocol === 'file:'
+      ? '当前浏览器可能不允许本地文件使用 IndexedDB。可以换一个允许的浏览器，或用本机网址打开同一文件。原有数据没有被覆盖。'
+      : '可以刷新再试。如果仍失败，请用已经下载的备份恢复。';
+    box.replaceChildren(
+      el('h1', { text: '行程册无法打开' }),
+      el('p', { text: '无法读取本机数据库。已停止一切写入，没有用空白行程覆盖原有数据。' }),
+      el('p', { text: extra })
+    );
+  }
+
+  function showApp() {
+    document.getElementById('boot-status').hidden = true;
+    document.getElementById('boot-error').hidden = true;
+    document.getElementById('app').hidden = false;
+  }
+
+  function bindDialogs() {
+    document.getElementById('persist-btn').addEventListener('click', () => {
+      Promise.resolve().then(requestPersist).catch((err) => showFailure(err));
+    });
+    document.getElementById('trip-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      Promise.resolve().then(() => onTripSubmit(event)).catch((err) => showFailure(err));
+    });
+    document.getElementById('trip-cancel').addEventListener('click', () => document.getElementById('trip-dialog').close());
+    document.getElementById('editor-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      Promise.resolve().then(() => saveEditor(event)).catch((err) => showFailure(err));
+    });
+    document.getElementById('editor-cancel').addEventListener('click', () => {
+      clearDocumentForm();
+      document.getElementById('editor-dialog').close();
+    });
+    document.getElementById('editor-dialog').addEventListener('close', () => clearDocumentForm());
+    document.getElementById('unsaved-backup-copy').addEventListener('click', () => {
+      const text = document.getElementById('unsaved-backup-text').textContent;
+      Promise.resolve().then(async () => {
+        need(navigator.clipboard && navigator.clipboard.writeText, '复制失败');
+        await navigator.clipboard.writeText(text);
+        toast('已复制未保存副本');
+      }).catch((err) => showFailure(err));
+    });
+    document.getElementById('end-download-md').addEventListener('click', () => {
+      Promise.resolve().then(() => onEndDownload('md')).catch((err) => setAlert('end-error', errorText(err)));
+    });
+    document.getElementById('end-download-json').addEventListener('click', () => {
+      Promise.resolve().then(() => onEndDownload('json')).catch((err) => setAlert('end-error', errorText(err)));
+    });
+    document.getElementById('end-confirm-md').addEventListener('change', syncEndContinue);
+    document.getElementById('end-confirm-json').addEventListener('change', syncEndContinue);
+    document.getElementById('end-continue').addEventListener('click', () => {
+      Promise.resolve().then(continueArchive).catch((err) => setAlert('end-error', errorText(err)));
+    });
+    document.getElementById('end-cancel').addEventListener('click', () => {
+      endFlow = null;
+      document.getElementById('end-dialog').close();
+    });
+    document.getElementById('end-dialog').addEventListener('close', () => {
+      if (document.getElementById('archive-dialog').open) return;
+    });
+    document.getElementById('archive-back').addEventListener('click', () => {
+      document.getElementById('archive-dialog').close();
+      const trip = endFlow && tripById(endFlow.tripId);
+      if (trip) openEndFlowKeep(trip);
+    });
+    document.getElementById('archive-go').addEventListener('click', () => {
+      Promise.resolve().then(archiveTrip).catch((err) => setAlert('archive-error', errorText(err)));
+    });
+    document.getElementById('archive-dialog').addEventListener('cancel', (event) => {
+      event.preventDefault();
+      document.getElementById('archive-back').focus();
+      setAlert('archive-error', '归档还没有执行。可以返回，或明确按下确认归档。');
+    });
+    document.getElementById('match-dialog').addEventListener('close', () => {
+      const dialog = document.getElementById('match-dialog');
+      const value = dialog.returnValue;
+      dialog.returnValue = '';
+      if (value !== 'import') { closePendingTickets(); return; }
+      Promise.resolve().then(importMatching).catch((err) => { closePendingTickets(); showFailure(err); });
+    });
+    document.getElementById('foreign-dialog').addEventListener('close', () => {
+      const dialog = document.getElementById('foreign-dialog');
+      const value = dialog.returnValue;
+      dialog.returnValue = '';
+      if (value !== 'attach') { closePendingTickets(); return; }
+      Promise.resolve().then(importForeign).catch((err) => { closePendingTickets(); showFailure(err); });
+    });
+    document.getElementById('establish-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (document.getElementById('establish-save').hidden) return;
+      Promise.resolve().then(() => importEstablish('create')).catch((err) => setAlert('establish-error', errorText(err)));
+    });
+    document.getElementById('establish-keep').addEventListener('click', () => {
+      Promise.resolve().then(() => importEstablish('keep')).catch((err) => setAlert('establish-error', errorText(err)));
+    });
+    document.getElementById('establish-reactivate').addEventListener('click', () => {
+      Promise.resolve().then(() => importEstablish('reactivate')).catch((err) => setAlert('establish-error', errorText(err)));
+    });
+    document.getElementById('establish-cancel').addEventListener('click', () => {
+      closePendingTickets();
+      document.getElementById('establish-dialog').close();
+    });
+    document.getElementById('ticket-file').addEventListener('change', (event) => {
+      const input = event.currentTarget;
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      Promise.resolve().then(() => readTicketFile(file)).catch((err) => showFailure(err));
+    });
+    document.getElementById('backup-file').addEventListener('change', (event) => {
+      const input = event.currentTarget;
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      Promise.resolve().then(async () => {
+        need(file.size <= MAX_BACKUP_CHARS, '文件超过允许大小');
+        const text = await file.text();
+        lastBackupText = text;
+        await importBackupText(text, false);
+      }).catch((err) => showFailure(err));
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+      event.preventDefault();
+      showFailure(event.reason);
+    });
+    window.addEventListener('error', () => {
+      showBanner('页面脚本出现错误，已停止当前操作。');
+    });
+  }
+
+  function openEndFlowKeep(trip) {
+    const dialog = document.getElementById('end-dialog');
+    if (!dialog.open) dialog.showModal();
+    syncEndContinue();
+  }
+
+  async function boot() {
+    try {
+      db = await openDb();
+      await loadState();
+      bindDialogs();
+      showApp();
+      render();
+      await updateStorageUi();
+      await refreshPersistStatus();
+    } catch (err) {
+      showBootError();
+    }
+  }
+
+  boot();
+  window.addEventListener('pagehide', () => clearInterval(countdownTimer));
+})();
+</script>
+</body>
+</html>
